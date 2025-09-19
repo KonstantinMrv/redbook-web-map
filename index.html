@@ -402,24 +402,24 @@
       let bounds = def.layer.getBounds();
       if (!bounds || !bounds.isValid()) return;
 
-      // Леко разширяване, за да не се "реже" нищо по ръбовете
-      try { bounds = bounds.pad(0.02); } catch(_) {}
-
-      // Изчисли десния padding според ширината на сайдпанела
+      try { bounds = bounds.pad(0.0125); } catch(_) {}  // по-малък pad => по-близо
+      
       const sidebar = document.getElementById('sidebar');
       const mapEl = document.getElementById('map');
-      const sidebarW = sidebar ? sidebar.getBoundingClientRect().width : 0;
+      const sidebarW = sidebar ? Math.round(sidebar.getBoundingClientRect().width) : 0;
       const mapW = mapEl ? mapEl.clientWidth : window.innerWidth;
-      const rightPad = Math.min(Math.round(sidebarW), Math.round(mapW * 0.45));
-
+      
+      // по-строг десен падинг: реалната ширина на панела + малък буфер
+      const rightPad = Math.min(sidebarW + 24, Math.round(mapW * 0.5));
+      
       // За да няма "подскачане"
       map.invalidateSize();
-
+      
       const doFit = () => {
         map.fitBounds(bounds, {
-          paddingTopLeft: [30, 30],
-          paddingBottomRight: [30 + rightPad, 30],
-          maxZoom: 8
+          paddingTopLeft: [18, 18],
+          paddingBottomRight: [18 + rightPad, 18],
+          maxZoom: 10   // позволи по-близко начално приближение
         });
       };
 
@@ -1027,3 +1027,4 @@
   </script>
 </body>
 </html>
+
