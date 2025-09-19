@@ -130,13 +130,6 @@
       position:relative;
     }
     .feature-item:hover{ background:#faf6e8; }
-    /* Лека стрелка при hover */
-    .feature-item::after{
-      content:"›"; position:absolute; right:128px; top:50%; transform:translateY(-50%);
-      opacity:0; transition:opacity .15s ease; font-size:18px; line-height:1; color:#999;
-      pointer-events:none;
-    }
-    .feature-item:hover::after{ opacity:.8; }
 
     /* Колона 2: релса за баджове (вдясно) */
     .feature-badges{
@@ -189,7 +182,7 @@
       border-radius:6px; border:1px solid #ccc; background:#f4f6ff; cursor:pointer; white-space:nowrap;
     }
     .link-btn:hover{ background:#e9edff; }
-    .link-btn:disabled, .link-btn.hidden{ display:none; }
+    .link-btn:disabled{ opacity:.6; cursor:not-allowed; background:#f0f0f0; color:#888; }
   </style>
 </head>
 <body>
@@ -644,29 +637,32 @@
         if (code){
           const st = document.createElement('span');
           st.className = `chip chip--st ${code}`;
-          st.textContent = p.STATUS;
           st.title = STATUS_TITLES[code] || p.STATUS;
+          // емоджи за CR
+          const label = (code === 'cr') ? `⚠️ ${p.STATUS}` : p.STATUS;
+          st.textContent = label;
           meta.appendChild(st);
         }
 
-        if (p.FAMILY){
+        // показваме FAMILY само за растения/гъби; TYPE само за животни
+        const isAnimals = state.activePts === 'animals';
+        if (!isAnimals && p.FAMILY){
           const fam = document.createElement('span');
           fam.textContent = p.FAMILY;
           meta.appendChild(fam);
         }
+        if (isAnimals && p.TYPE){
+          const typ = document.createElement('span');
+          typ.textContent = p.TYPE;
+          meta.appendChild(typ);
+        }
+
         if (typeof item.count === 'number'){
           const cnt = document.createElement('span');
           cnt.className = 'chip chip--count';
           cnt.title = 'Брой точки за вида';
           cnt.textContent = item.count;
           meta.appendChild(cnt);
-        }
-
-        // по желание запази TYPE за животните
-        if (p.TYPE && state.activePts === 'animals'){
-          const typ = document.createElement('span');
-          typ.textContent = p.TYPE;
-          meta.appendChild(typ);
         }
 
         names.appendChild(meta);
@@ -691,19 +687,20 @@
         }
         row.appendChild(rail);
 
-        /* 3) БУТОН (най-вдясно) */
+        /* 3) БУТОН (най-вдясно): винаги видим; без линк -> disabled/сив */
         const linkHref = getFeatureLink(p);
         const btn = document.createElement('button');
         btn.className = 'link-btn';
         btn.textContent = 'Отвори статия';
-        if (!linkHref) {
-          btn.classList.add('hidden');  // скрий, ако няма линк
-        } else {
+        btn.disabled = !linkHref;
+        if (linkHref) {
           btn.title = 'Отваря статия в нов таб';
           btn.addEventListener('click', (ev) => {
             ev.stopPropagation();
             window.open(linkHref, '_blank', 'noopener');
           });
+        } else {
+          btn.title = 'Няма налична статия';
         }
         row.appendChild(btn);
 
