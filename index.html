@@ -185,6 +185,10 @@
     }
     .link-btn:hover{ background:#e9edff; }
     .link-btn:disabled{ opacity:.6; cursor:not-allowed; background:#f0f0f0; color:#888; }
+
+    /* Зонов dropdown ред (компактен) */
+    .zones-row { margin-top:6px; }
+    .zones-label { font-weight: 600; font-size: 13px; color:#333; margin-bottom:4px; }
   </style>
 </head>
 <body>
@@ -195,17 +199,28 @@
     <div class="controls" role="group" aria-label="Controls">
       <section>
         <strong>Основа</strong>
-        <label><input type="radio" name="poly" value="morph" checked> Геоморфоложки структури</label>
-        <label><input type="radio" name="poly" value="land"> Ландшафтно райониране</label>
-        <label><input type="radio" name="poly" value="n2k_birds"> Natura 2000 — Зони за птици</label>
-        <label><input type="radio" name="poly" value="n2k_habitats"> Natura 2000 — Зони по местообитания</label>
-        <label><input type="radio" name="poly" value="protected_area"> Защитени територии</label>
+        <label><input type="radio" name="polyMain" value="morph" checked> Геоморфоложки структури</label>
+        <label><input type="radio" name="polyMain" value="land"> Ландшафтно райониране</label>
+
+        <label class="checkline" style="margin-top:6px;">
+          <input type="radio" name="polyMain" value="zones"> Natura 2000 / Защитени зони
+        </label>
+        <div id="zonesLine" class="zones-row hidden">
+          <div class="zones-label">Изберете слой</div>
+          <select id="ddZones">
+            <option value="n2k_birds">Natura 2000 — Зони за птици</option>
+            <option value="n2k_habitats">Natura 2000 — Зони по местообитания</option>
+            <option value="protected_area">Защитени територии</option>
+          </select>
+        </div>
       </section>
+
       <section>
         <strong>Книги</strong>
         <label><input type="radio" name="points" value="plants"> Том I. Растения и гъби</label>
         <label><input type="radio" name="points" value="animals" checked> Том II. Животни</label>
       </section>
+
       <section>
         <input id="searchBox" type="text" placeholder="Търси в BG_NAME / LATIN_NAME…" aria-label="Search">
         <div class="row" style="margin-top:8px">
@@ -227,6 +242,7 @@
         <div class="legend muted">Съвет: напишете търсене или изберете полигон/филтри.</div>
       </section>
     </div>
+
     <div id="count" class="muted">Въведете търсене или изберете филтър.</div>
     <div id="list" role="list" aria-label="Result list"></div>
   </div>
@@ -240,7 +256,7 @@
     const ANIMALS_GEOJSON_URL = 'data/Animals.geojson';
     const PLANTS_FUNGI_GEOJSON_URL = 'data/PlantsFungi.geojson';
 
-    /* ---------- POLYGON LAYERS CONFIG (lazy-loaded) ---------- */
+    /* ---------- POLYGON LAYERS CONFIG ---------- */
     const POLY_DEFS = {
       morph: {
         url: 'data/morph_units.geojson',
@@ -305,8 +321,9 @@
 
     /* ---------- STATE ---------- */
     const state = {
-      activePoly: 'morph',
-      activePts:  'animals',
+      activePolyMain: 'morph',        // 'morph' | 'land' | 'zones'
+      activePoly:     'morph',        // реалният ключ в POLY_DEFS
+      activePts:      'animals',      // 'animals' | 'plants'
       selectedPolygonFeature: null,
       selectedPolygonLayer: null,
       explodedPoints: [],
@@ -330,7 +347,9 @@
       btnClearFilters: document.getElementById('btnClearFilters'),
       btnClearSel: document.getElementById('btnClearSel'),
       list: document.getElementById('list'),
-      count: document.getElementById('count')
+      count: document.getElementById('count'),
+      zonesLine: document.getElementById('zonesLine'),
+      ddZones: document.getElementById('ddZones')
     };
 
     /* ---------- Данни за точки ---------- */
@@ -796,28 +815,29 @@
 
     /* ---------- Controls / Events ---------- */
     function wireControls() {
-      // смяна на полигонов слой (само един активен)
-      document.querySelectorAll('input[name="poly"]').forEach(r => {
+      // смяна на полигонов слой (група)
+      document.querySelectorAll('input[name="polyMain"]').forEach(r => {
         r.addEventListener('change', async () => {
-          const prev = state.activePoly;
-          const next = r.value;
-
-          // махни стария активен слой от картата
-          const prevDef = POLY_DEFS[prev];
-          if (prevDef?.layer && map.hasLayer(prevDef.layer)) {
-            map.removeLayer(prevDef.layer);
-          }
-
-          // върни стил на предходния селектиран полигон и нулирай селекцията
+          const prevKey = state.activePoly;
+          const prevDef = POLY_DEFS[prevKey];
+          if (prevDef?.layer && map.hasLayer(prevDef.layer)) map.removeLayer(prevDef.layer);
           if (state.selectedPolygonLayer) {
-            try { state.selectedPolygonLayer.setStyle(POLY_DEFS[prev].baseStyle); } catch(e){}
+            try { state.selectedPolygonLayer.setStyle(POLY_DEFS[prevKey].baseStyle); } catch(e){}
           }
           state.selectedPolygonLayer = null;
           state.selectedPolygonFeature = null;
 
-          // добави новия слой (lazy-load)
-          state.activePoly = next;
-          const lay = await ensurePolyLayer(next);
+          state.activePolyMain = r.value;
+
+          // показване/скриване на dropdown-а
+          const useZones = (state.activePolyMain === 'zones');
+          el.zonesLine.classList.toggle('hidden', !useZones);
+
+          // определи реалния ключ
+          state.activePoly = useZones ? el.ddZones.value : state.activePolyMain;
+
+          // добави новия слой
+          const lay = await ensurePolyLayer(state.activePoly);
           lay.addTo(map);
 
           // глобален режим на точки
@@ -831,6 +851,33 @@
         });
       });
 
+      // смяна вътре в dropdown-а (ако групата е активна)
+      el.ddZones.addEventListener('change', async () => {
+        if (state.activePolyMain !== 'zones') return;
+
+        const prevKey = state.activePoly;
+        const prevDef = POLY_DEFS[prevKey];
+        if (prevDef?.layer && map.hasLayer(prevDef.layer)) map.removeLayer(prevDef.layer);
+        if (state.selectedPolygonLayer) {
+          try { state.selectedPolygonLayer.setStyle(POLY_DEFS[prevKey].baseStyle); } catch(e){}
+        }
+        state.selectedPolygonLayer = null;
+        state.selectedPolygonFeature = null;
+
+        state.activePoly = el.ddZones.value;
+        const lay = await ensurePolyLayer(state.activePoly);
+        lay.addTo(map);
+
+        // нулирай резултати (както при смяна на слой)
+        state.selectedSpeciesKey = null;
+        setGlobalExplodedFromActive();
+        populateFilterDropdowns(state.explodedPoints);
+        state.filteredPoints = [];
+        state.pointMarkerLayer.clearLayers();
+        el.list.innerHTML = '';
+        el.count.textContent = 'Въведете търсене или изберете филтър.';
+      });
+
       // смяна на точков слой
       document.querySelectorAll('input[name="points"]').forEach(r => {
         r.addEventListener('change', () => {
@@ -839,7 +886,6 @@
           refreshFilterVisibility();
 
           if (state.selectedPolygonFeature) {
-            // преизчисли точките вътре в селектирания полигон
             onPolygonClick(state.selectedPolygonFeature, state.selectedPolygonLayer);
           } else {
             setGlobalExplodedFromActive();
@@ -875,12 +921,7 @@
       el.btnClearSel.addEventListener('click', () => {
         state.selectedSpeciesKey = null;
         clearSelection();
-        if (state.selectedPolygonLayer) {
-          const def = POLY_DEFS[state.activePoly];
-          map.fitBounds(def.layer.getBounds(), { padding: [30,30], maxZoom: 8 });
-        } else {
-          fitToActivePolyForBG();
-        }
+        fitToActivePolyForBG();
       });
     }
 
@@ -930,7 +971,7 @@
       layers.data.animals = animals;
       layers.data.plants  = plants;
 
-      // стартов полигонов слой
+      // стартов полигонов слой (morph)
       const layer = await ensurePolyLayer(state.activePoly);
       layer.addTo(map);
 
