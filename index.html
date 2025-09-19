@@ -117,7 +117,7 @@
 
     .leaflet-interactive.hovered{ stroke-width:3px !important; filter:brightness(1.2); }
 
-    /* ---------- Ред в списъка: Имена | Баджове | Бутон ---------- */
+    /* ---------- Ред в списъка: Текст | Бадж-рейл | Бутон ---------- */
     .feature-item{
       display:grid;
       grid-template-columns: 1fr 88px 120px; /* (ляво) текст | (дясно) бадж-рейл | бутон */
@@ -127,26 +127,35 @@
       padding:10px 8px;
       border-bottom:1px solid #eee;
       cursor:pointer;
+      position:relative;
     }
     .feature-item:hover{ background:#faf6e8; }
+    /* Лека стрелка при hover */
+    .feature-item::after{
+      content:"›"; position:absolute; right:128px; top:50%; transform:translateY(-50%);
+      opacity:0; transition:opacity .15s ease; font-size:18px; line-height:1; color:#999;
+      pointer-events:none;
+    }
+    .feature-item:hover::after{ opacity:.8; }
 
     /* Колона 2: релса за баджове (вдясно) */
     .feature-badges{
-      display:flex; gap:6px; flex-wrap:wrap; align-items:center; justify-content:flex-end;
-      min-height:24px;
+      display:flex; flex-direction:column; align-items:flex-end; justify-content:center;
+      gap:6px; min-height:40px;
     }
+    .feature-badges .chip{ min-width:70px; justify-content:center; }
 
     /* Колона 1: имена + мета (вляво) */
     .feature-names{ display:flex; flex-direction:column; gap:2px; min-width:0; }
     .feature-names .name-bg{
-      font-weight:700; line-height:1.2; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
+      font-weight:600; line-height:1.2; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
     }
     .feature-names .name-la{
-      font-style:italic; font-size:0.875rem; opacity:.85; line-height:1.1;
+      font-style:italic; font-size:0.875rem; color:#4b5563; opacity:.95; line-height:1.05;
       overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
     }
     .feature-meta{
-      margin-top:4px; font-size:12px; color:#666; display:flex; gap:8px; align-items:center; flex-wrap:wrap;
+      margin-top:4px; font-size:12px; color:#666; display:flex; gap:6px; align-items:center; flex-wrap:wrap;
     }
 
     /* Чипове / баджове */
@@ -171,13 +180,16 @@
     .chip--st.dd{ background:var(--st-dd-bg); border-color:var(--st-dd-bd); color:var(--st-dd-tx); }
     .chip--st.ex{ background:var(--st-ex-bg); border-color:var(--st-ex-bd); color:var(--st-ex-tx); }
 
+    /* По-тих брояч */
+    .chip--count{ background:#EEF1FF; border-color:#D7DBFF; color:#4b4f7a; font-weight:600; padding:2px 6px; }
+
     /* Десният бутон */
     .link-btn{
       width:120px; text-align:center; padding:6px 8px; font-size:12px;
       border-radius:6px; border:1px solid #ccc; background:#f4f6ff; cursor:pointer; white-space:nowrap;
     }
     .link-btn:hover{ background:#e9edff; }
-    .link-btn:disabled{ opacity:.5; cursor:not-allowed; }
+    .link-btn:disabled, .link-btn.hidden{ display:none; }
   </style>
 </head>
 <body>
@@ -197,9 +209,9 @@
         <label><input type="radio" name="points" value="animals" checked> Том II. Животни</label>
       </section>
       <section>
-        <input id="searchBox" type="text" placeholder="Потърси по наименование" aria-label="Search">
+        <input id="searchBox" type="text" placeholder="Търси в BG_NAME / LATIN_NAME…" aria-label="Search">
         <div class="row" style="margin-top:8px">
-          <select id="ddSTATUS"><option value="">Статус (всички)</option></select>
+          <select id="ddSTATUS"><option value="">Природозащитен статус (всички)</option></select>
           <select id="ddFAMILY"><option value="">Семейство (всички)</option></select>
         </div>
         <div class="row" id="rowTypeOrder" style="margin-top:8px">
@@ -212,9 +224,9 @@
         </div>
         <div class="btnbar">
           <button id="btnClearFilters" title="Изчисти всички филтри">Изчисти филтрите</button>
-          <button id="btnClearSel" title="Изчисти селекцията на територията">Изчисти селекцията</button>
+          <button id="btnClearSel" title="Изчисти селекцията на полигон">Изчисти селекцията</button>
         </div>
-        <div class="legend muted">Съвет: Въведете филтър или изберете територия на картата/филтри.</div>
+        <div class="legend muted">Съвет: напишете търсене или изберете полигон/филтри.</div>
       </section>
     </div>
     <div id="count" class="muted">Въведете търсене или изберете филтър.</div>
@@ -493,7 +505,7 @@
         for (const m of state.currentMarkers) state.pointMarkerLayer.addLayer(m);
         const speciesCount = new Set(state.filteredPoints.map(f => speciesKey(f.properties))).size;
         document.getElementById('count').textContent =
-          `Намерени видове: ${speciesCount} (Общ брой нахождения: ${state.filteredPoints.length})`;
+          `Намерени видове: ${speciesCount} (точки: ${state.filteredPoints.length})`;
         return;
       }
       const group = state.currentMarkersByKey.get(state.selectedSpeciesKey) || [];
@@ -502,7 +514,7 @@
         m._icon?.classList.add('highlight');
       }
       document.getElementById('count').textContent =
-        `Намерени видове: 1 (Общ брой нахождения: ${group.length})`;
+        `Намерени видове: 1 (точки: ${group.length})`;
     }
 
     /* ---------- Основен филтър и рендер ---------- */
@@ -627,7 +639,7 @@
         const meta = document.createElement('div');
         meta.className = 'feature-meta';
 
-        // Статус-чип с tooltip
+        // Статус-чип с tooltip – първи в реда
         const code = statusToCode(p.STATUS);
         if (code){
           const st = document.createElement('span');
@@ -642,19 +654,19 @@
           fam.textContent = p.FAMILY;
           meta.appendChild(fam);
         }
+        if (typeof item.count === 'number'){
+          const cnt = document.createElement('span');
+          cnt.className = 'chip chip--count';
+          cnt.title = 'Брой точки за вида';
+          cnt.textContent = item.count;
+          meta.appendChild(cnt);
+        }
+
+        // по желание запази TYPE за животните
         if (p.TYPE && state.activePts === 'animals'){
           const typ = document.createElement('span');
           typ.textContent = p.TYPE;
           meta.appendChild(typ);
-        }
-        if (typeof item.count === 'number'){
-          const cnt = document.createElement('span');
-          cnt.className = 'chip';
-          cnt.style.background = '#eef';
-          cnt.style.borderColor = '#ccd';
-          cnt.title = 'Брой нахождения за вида';
-          cnt.textContent = item.count;
-          meta.appendChild(cnt);
         }
 
         names.appendChild(meta);
@@ -667,12 +679,14 @@
           const b = document.createElement('span');
           b.className = 'chip chip--endemic';
           b.textContent = 'Ендемит';
+          b.title = 'Ендемит — вид, срещащ се само тук';
           rail.appendChild(b);
         }
         if (isTruthy(p.RELICT)) {
           const b = document.createElement('span');
           b.className = 'chip chip--relict';
           b.textContent = 'Реликт';
+          b.title = 'Реликт — древен елемент от флора/фауна';
           rail.appendChild(b);
         }
         row.appendChild(rail);
@@ -682,12 +696,15 @@
         const btn = document.createElement('button');
         btn.className = 'link-btn';
         btn.textContent = 'Отвори статия';
-        btn.disabled = !linkHref;
-        btn.title = linkHref ? 'Отваря статия в нов таб' : 'Няма наличен линк';
-        btn.addEventListener('click', (ev) => {
-          ev.stopPropagation();
-          if (linkHref) window.open(linkHref, '_blank', 'noopener');
-        });
+        if (!linkHref) {
+          btn.classList.add('hidden');  // скрий, ако няма линк
+        } else {
+          btn.title = 'Отваря статия в нов таб';
+          btn.addEventListener('click', (ev) => {
+            ev.stopPropagation();
+            window.open(linkHref, '_blank', 'noopener');
+          });
+        }
         row.appendChild(btn);
 
         // КЛИК ПО РЕД → филтър + плавен зум
@@ -710,7 +727,7 @@
       }
 
       // Обнови брояча (по подразбиране – всички филтрирани)
-      el.count.textContent = `Намерени видове: ${uniqueList.length} (Общ брой нахождения: ${totalPoints})`;
+      el.count.textContent = `Намерени видове: ${uniqueList.length} (точки: ${totalPoints})`;
 
       // Ако има активна селекция по вид, приложи филтъра
       if (state.selectedSpeciesKey) filterMarkersToSelectedSpecies();
@@ -847,4 +864,3 @@
   </script>
 </body>
 </html>
-
