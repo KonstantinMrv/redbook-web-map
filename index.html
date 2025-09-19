@@ -48,11 +48,14 @@
     /* Резултатна част – фиксиран блок, без скрол */
     #count{ margin:6px 0; font-weight:600; flex: 0 0 auto; }
     #list{
-      border-top:1px solid #ddd; margin-top:6px;
-      height: calc(50vh);                 /* фиксирана височина за списъка */
-      overflow: hidden;                   /* без скрол – визуално отрязване */
-      flex: 0 0 auto;
+      border-top:1px solid #ddd;
+      margin-top:6px;
+      height:calc(50vh);
+      overflow-y:auto;      /* вертикален скрол само за списъка */
+      overflow-x:hidden;    /* без хоризонтален */
+      flex:1 1 auto;        /* запълва останалото пространство */
     }
+
 
     /* Гридове без хор. преливане */
     .row{
@@ -692,3 +695,4 @@
   </script>
 </body>
 </html>
+
