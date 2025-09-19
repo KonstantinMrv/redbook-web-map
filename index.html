@@ -239,8 +239,13 @@
       // първоначално: глобален набор за активния точков слой (за глобално търсене)
       setGlobalExplodedFromActive();
       populateFilterDropdowns(state.explodedPoints);
-
-      // НИКАКЪВ зууум тук
+      
+      // ЛЕК начален зууум към цялата територия (границите на двата полигонови слоя)
+      try {
+        const allBounds = layers.poly.morph.getBounds().extend(layers.poly.land.getBounds());
+        map.fitBounds(allBounds, { padding: [20, 20], maxZoom: 8 }); // леко приближение
+      } catch (e) {}
+      
       wireControls();
       refreshFilterVisibility();
     });
@@ -515,19 +520,27 @@
         div.appendChild(meta);
 
         /* Клик по елемента → само подсвет (без зууум/пан) */
+        /* Клик по елемента → подсвет и леко приближаване */
         div.onclick = () => {
           state.selectedSpeciesKey = item.key;
+        
+          // премахни старите подсвети
           for (const m of state.currentMarkers) { m._icon?.classList.remove('highlight'); }
           const group = state.currentMarkersByKey.get(item.key) || [];
-          for (const m of group) { m._icon?.classList.add('highlight'); }
+          const gb = [];
+          for (const m of group) { m._icon?.classList.add('highlight'); gb.push(m.getLatLng()); }
+        
+          // ЛЕКО приближаване САМО при избор на вид
+          if (gb.length === 1) {
+            const target = gb[0];
+            const targetZoom = Math.max(map.getZoom(), 9); // леко приближение
+            map.setView(target, targetZoom, { animate: true });
+          } else if (gb.length > 1) {
+            const b = L.latLngBounds(gb);
+            map.fitBounds(b.pad(0.25), { maxZoom: 10 }); // леко приближение за група точки
+          }
         };
 
-        el.list.appendChild(div);
-      }
-
-      el.count.textContent = `Намерени видове: ${uniqueList.length} (точки: ${totalPoints})`;
-
-      // НИКАКЪВ авто-зууум тук
     }
 
     /* Popup table */
@@ -660,3 +673,4 @@
   </script>
 </body>
 </html>
+
