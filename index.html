@@ -9,64 +9,73 @@
   <style>
     :root { --pad:12px; --gap:8px; --radius:10px; }
 
-    /* Предотвратяване на преливане */
+    /* Глобално: никакви скролбарове на страницата */
     *, *::before, *::after { box-sizing: border-box; }
-
-    html, body{
-      height:100%; margin:0; font-family:system-ui, Arial, sans-serif;
-      /* блокира хоризонталното преливане от субпиксели/скролбар */
-      overflow-x: clip;
+    html, body {
+      height:100%;
+      margin:0;
+      font-family:system-ui, Arial, sans-serif;
+      overflow: hidden;           /* без вертикален или хоризонтален скрол */
     }
+
+    /* Карта */
     #map { position:absolute; inset:0; }
 
-    /* Унифициран панел */
-    #sidebar {
-      position: absolute;
-      top: 10px;
-      right: 10px;
-      width: 500px;
-      max-width: calc(100vw - 20px);
-      height: 90vh;              /* фиксирана височина */
-      overflow: hidden;          /* скрива ВСИЧКИ скролбарове и преливане */
-      background: #fff;
-      padding: var(--pad);
-      border-radius: var(--radius);
-      box-shadow: 0 6px 18px rgba(0,0,0,.25);
-      z-index: 9999;
+    /* Фиксиран сайдпанел (еднакъв при двата слоя) */
+    #sidebar{
+      position:absolute; top:10px; right:10px;
+      width:500px;                         /* фиксирана ширина */
+      max-width: calc(100vw - 20px);       /* безопасно за малки екрани */
+      height: 90vh;                        /* фиксирана височина */
+      background:#fff; padding:var(--pad);
+      border-radius:var(--radius); box-shadow:0 6px 18px rgba(0,0,0,.25); z-index:9999;
+
+      display:flex; flex-direction:column; /* стабилен вътрешен layout */
+      overflow: hidden;                    /* никакъв вътрешен скрол */
     }
-
-
     #sidebar h3{
       margin:0 0 var(--gap) 0;
-      text-align:center; /* центриране на заглавието */
+      text-align:center;                   /* центрирано заглавие */
+    }
+
+    .controls{
+      flex: 0 0 auto;                      /* блокът с контроли е с естествена височина */
+      overflow: hidden;                     /* отрязва евентуално преливане */
     }
     .controls section{ margin-bottom:10px; }
     .controls label{ display:block; margin:4px 0; cursor:pointer; }
 
-    /* Гридове без преливане */
+    /* Резултатна част – фиксиран блок, без скрол */
+    #count{ margin:6px 0; font-weight:600; flex: 0 0 auto; }
+    #list{
+      border-top:1px solid #ddd; margin-top:6px;
+      height: calc(50vh);                 /* фиксирана височина за списъка */
+      overflow: hidden;                   /* без скрол – визуално отрязване */
+      flex: 0 0 auto;
+    }
+
+    /* Гридове без хор. преливане */
     .row{
       display:grid;
       grid-template-columns: minmax(0,1fr) minmax(0,1fr);
       gap:var(--gap);
     }
-    .row > *{ min-width:0; } /* критично срещу хор. скрол */
+    .row > * { min-width:0; }             /* ключово срещу хор. скрол */
 
-    /* Форм елементи – гарантирано в панела */
+    /* Форм елементи – в границите на панела */
     input[type="text"], select{
       width:100%; max-width:100%; display:block;
       padding:8px; border:1px solid #ccc; border-radius:6px; font-size:14px;
-      min-width:0; /* да се свиват вътре в grid */
+      min-width:0;                        /* позволи свиване в grid */
     }
-
-    /* Дълги опции да не раздуват селектите */
+    /* Дълги опции да не раздуват селекта */
     #sidebar select{
       text-overflow: ellipsis;
       white-space: nowrap;
       overflow: hidden;
     }
 
-    /* Дълги текстове в редовете */
-    label, .feature-item, .feature-row > div{
+    label, .feature-item, .feature-row > div {
       overflow-wrap:anywhere;
       word-break:break-word;
     }
@@ -86,14 +95,6 @@
       background:#f6f6f6; cursor:pointer; min-width:150px;
     }
     .btnbar button:hover{ background:#eee; }
-
-    #count{ margin:6px 0; font-weight:600; }
-
-    /* Фиксиран списък */
-    #list{
-      border-top:1px solid #ddd; margin-top:6px;
-      height:50vh; overflow:auto;
-    }
 
     .feature-item{ cursor:pointer; padding:10px 6px; border-bottom:1px solid #eee; }
     .feature-item:hover{ background:#faf6e8; }
@@ -691,6 +692,3 @@
   </script>
 </body>
 </html>
-
-
-
