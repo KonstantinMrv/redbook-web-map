@@ -55,6 +55,12 @@
       color: #333;
       box-shadow: 0 1px 3px rgba(0,0,0,.15);
     }
+
+    /* По-изразено hover/selection на полигони */
+    .leaflet-interactive.hovered {
+      stroke-width: 3px !important;
+      filter: brightness(1.2);
+    }
   </style>
 </head>
 <body>
@@ -125,8 +131,8 @@ const state = {
   activePts:  'animals', // 'animals' | 'plants'
   selectedPolygonFeature: null,
   selectedPolygonLayer: null,
-  explodedPoints: [],        // cache after polygon selection (unfiltered)
-  filteredPoints: [],        // cache after applyFilters
+  explodedPoints: [],        // вътрешният набор (само точки вътре в полигона)
+  filteredPoints: [],
   pointMarkerLayer: L.layerGroup().addTo(map),
   idCounter: 0,
   currentMarkers: [],
@@ -157,12 +163,10 @@ const el = {
 /* ---------- Layers ---------- */
 const layers = { poly: {}, data: {} };
 
-/* Helper: polygon label text from NAME field */
-function getPolyLabel(props = {}) {
-  return props.NAME || '';
-}
+/* Label helper (NAME) */
+function getPolyLabel(props = {}) { return props.NAME || ''; }
 
-/* Load all data, build polygon layers (clickable), store point FeatureCollections */
+/* Load data and build layers */
 Promise.all([
   fetch(MORPH_GEOJSON_URL).then(r=>r.json()),
   fetch(LANDSCAPE_GEOJSON_URL).then(r=>r.json()),
@@ -170,18 +174,26 @@ Promise.all([
   fetch(PLANTS_FUNGI_GEOJSON_URL).then(r=>r.json())
 ]).then(([morph, land, animals, plants]) => {
   layers.poly.morph = L.geoJSON(morph, {
-    style: { color: '#B08D57', weight: 1, fillColor: '#F3E5AB', fillOpacity: 0.65 }, // бежово, 35% transparency
+    style: { color: '#B08D57', weight: 1, fillColor: '#F3E5AB', fillOpacity: 0.65 }, // бежово
     onEachFeature: (f, l) => {
-      l.on('click', () => onPolygonClick(f, l));
+      l.on({
+        mouseover: e => { if (e?.target?._path) e.target._path.classList.add('hovered'); },
+        mouseout:  e => { if (e?.target?._path) e.target._path.classList.remove('hovered'); },
+        click:     () => onPolygonClick(f, l)
+      });
       const lbl = getPolyLabel(f.properties);
       if (lbl) l.bindTooltip(lbl, { permanent: true, direction: 'center', className: 'poly-label' });
     }
   }).addTo(map);
 
   layers.poly.land = L.geoJSON(land, {
-    style: { color: '#5A8F68', weight: 1, fillColor: '#CDE8B8', fillOpacity: 0.65 }, // зеленикаво, 35% transparency
+    style: { color: '#5A8F68', weight: 1, fillColor: '#CDE8B8', fillOpacity: 0.65 }, // зеленикаво
     onEachFeature: (f, l) => {
-      l.on('click', () => onPolygonClick(f, l));
+      l.on({
+        mouseover: e => { if (e?.target?._path) e.target._path.classList.add('hovered'); },
+        mouseout:  e => { if (e?.target?._path) e.target._path.classList.remove('hovered'); },
+        click:     () => onPolygonClick(f, l)
+      });
       const lbl = getPolyLabel(f.properties);
       if (lbl) l.bindTooltip(lbl, { permanent: true, direction: 'center', className: 'poly-label' });
     }
@@ -200,18 +212,23 @@ Promise.all([
 function onPolygonClick(feature, layer) {
   state.activePts = document.querySelector('input[name="points"]:checked').value;
 
+  // изчистване стил на предишен полигон
   if (state.selectedPolygonLayer) try { state.selectedPolygonLayer.setStyle({weight:1}); } catch(e){}
   state.selectedPolygonLayer = layer;
   state.selectedPolygonFeature = feature;
-  layer.setStyle({ weight: 3 });
+  layer.setStyle({ weight: 4 }); // по-дебела рамка за селекция
 
+  // авто-зуум към полигона
+  try { map.fitBounds(layer.getBounds(), { padding: [20,20] }); } catch(e){}
+
+  // Explode -> only inside
   const ptsFC = layers.data[state.activePts];
-  state.explodedPoints = explodeMultiPoints(ptsFC);
-
+  const exploded = explodeMultiPoints(ptsFC);
   const inside = [];
-  for (const pt of state.explodedPoints) {
+  for (const pt of exploded) {
     if (turf.booleanPointInPolygon(pt, feature)) inside.push(pt);
   }
+  state.explodedPoints = inside;
 
   populateFilterDropdowns(inside);
   applyFiltersAndRender();
@@ -239,12 +256,10 @@ function isTruthy(v) {
   const s = String(v).trim().toLowerCase();
   return ['1','y','yes','true','да'].includes(s) || s.startsWith('y') || s.startsWith('д');
 }
-
 function uniqueSorted(values) {
   return [...new Set(values.filter(v => v !== null && v !== undefined && String(v).trim() !== ''))]
     .map(String).sort((a,b)=>a.localeCompare(b,'bg',{sensitivity:'base'}));
 }
-
 function populateFilterDropdowns(features) {
   const vals = { STATUS:[], FAMILY:[], TYPE:[], ORDER:[], DISTRIBUTION:[], ZONE_IDS:[] };
   for (const f of features) {
@@ -272,7 +287,6 @@ function populateFilterDropdowns(features) {
     el.ddZONE_IDS.parentElement.classList.add('hidden');
   }
 }
-
 function fillSelect(sel, values, firstLabel) {
   const current = sel.value;
   sel.innerHTML = '';
@@ -293,11 +307,8 @@ function fillSelect(sel, values, firstLabel) {
 /* normalize string for case/diacritic-insensitive search */
 function normalize(v) {
   if (v == null) return '';
-  try {
-    return String(v).toLowerCase().normalize('NFD').replace(/\p{Diacritic}/gu,'');
-  } catch(e) {
-    return String(v).toLowerCase();
-  }
+  try { return String(v).toLowerCase().normalize('NFD').replace(/\p{Diacritic}/gu,''); }
+  catch(e) { return String(v).toLowerCase(); }
 }
 
 /* Key for species (unique list) */
@@ -328,7 +339,7 @@ function applyFiltersAndRender() {
     EXTINCT: el.cbEXTINCT.checked
   };
 
-  let arr = state.explodedPoints || [];
+  const arr = state.explodedPoints || [];
   const filtered = [];
   for (const f of arr) {
     const p = f.properties || {};
@@ -393,7 +404,6 @@ function renderListAndMarkers(features) {
 
   const uniqueList = [];
   for (const [key, markers] of state.currentMarkersByKey.entries()) {
-    const any = markers[0];
     const rep = features.find(ft => speciesKey(ft.properties) === key) || {};
     uniqueList.push({ key, count: markers.length, props: rep.properties || {} });
   }
@@ -443,9 +453,7 @@ function renderListAndMarkers(features) {
   el.count.textContent = `Намерени видове: ${uniqueList.length} (точки: ${totalPoints})`;
 
   if (bounds.length) {
-    try {
-      map.fitBounds(L.latLngBounds(bounds).pad(0.2));
-    } catch(e){}
+    try { map.fitBounds(L.latLngBounds(bounds).pad(0.2)); } catch(e){}
   }
 }
 
