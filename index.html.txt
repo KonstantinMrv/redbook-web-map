@@ -1,0 +1,501 @@
+<!DOCTYPE html>
+<html lang="bg">
+<head>
+  <meta charset="utf-8" />
+  <title>RedBook Web Map — Animals & Plants/Fungi</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <!-- Leaflet -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <style>
+    :root { --pad: 12px; --gap: 8px; --radius: 10px; }
+    html, body { height: 100%; margin: 0; font-family: system-ui, Arial, sans-serif; }
+    #map { position: absolute; inset: 0; }
+    #sidebar {
+      position: absolute; top: 10px; right: 10px; width: 340px; max-width: 94vw;
+      max-height: calc(100% - 20px); overflow: auto; background: #fff; padding: var(--pad);
+      border-radius: var(--radius); box-shadow: 0 6px 18px rgba(0,0,0,.25); z-index: 9999;
+    }
+    #sidebar h3 { margin: 0 0 var(--gap) 0; }
+    .controls section { margin-bottom: 10px; }
+    .controls label { display: block; margin: 4px 0; cursor: pointer; }
+    .row { display: grid; grid-template-columns: 1fr 1fr; gap: var(--gap); }
+    .row > * { width: 100%; }
+    input[type="text"], select {
+      width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 6px; font-size: 14px;
+    }
+    .checkline { display:flex; align-items:center; gap:8px; }
+    .btnbar { display:flex; gap: var(--gap); margin: 6px 0 10px; }
+    button {
+      padding: 8px 10px; border-radius: 8px; border: 1px solid #ccc; background:#f6f6f6; cursor:pointer;
+    }
+    button:hover { background:#eee; }
+    #count { margin: 6px 0; font-weight: 600; }
+    #list { border-top: 1px solid #ddd; margin-top: 6px; }
+    .feature-item { cursor:pointer; padding:8px 4px; border-bottom:1px solid #eee; }
+    .feature-item:hover { background:#faf6e8; }
+    .badge { display:inline-block; font-size: 11px; padding: 2px 6px; border-radius: 999px; background:#eef; border:1px solid #ccd; margin-left: 6px; }
+    .legend { font-size: 12px; color:#666; }
+    .muted { color:#666; }
+    .hidden { display:none !important; }
+
+    /* Leaflet marker style for points */
+    .pt-marker {
+      background: #1f78b4; width: 8px; height: 8px; border-radius: 50%; border: 1px solid white;
+      box-shadow: 0 0 0 1px rgba(0,0,0,.15);
+    }
+    .pt-marker.highlight { background:#ff7f0e; }
+  </style>
+</head>
+<body>
+<div id="map"></div>
+
+<div id="sidebar" aria-label="Sidebar">
+  <h3>Червена книга — защитени видове</h3>
+  <div class="controls" role="group" aria-label="Controls">
+    <section>
+      <strong>Полигонов слой</strong>
+      <label><input type="radio" name="poly" value="morph" checked> morph_units</label>
+      <label><input type="radio" name="poly" value="land"> landscape_zoning</label>
+    </section>
+    <section>
+      <strong>Точков слой</strong>
+      <label><input type="radio" name="points" value="animals" checked> Animals</label>
+      <label><input type="radio" name="points" value="plants"> PlantsFungi</label>
+    </section>
+    <section>
+      <input id="searchBox" type="text" placeholder="Търси в BG_NAME / LATIN_NAME…" aria-label="Search">
+      <div class="row" style="margin-top:8px">
+        <select id="ddSTATUS"><option value="">STATUS (всички)</option></select>
+        <select id="ddFAMILY"><option value="">FAMILY (всички)</option></select>
+      </div>
+      <div class="row" id="rowTypeOrder" style="margin-top:8px">
+        <select id="ddTYPE"><option value="">TYPE (всички)</option></select>
+        <select id="ddORDER"><option value="">ORDER (всички)</option></select>
+      </div>
+      <div class="row" style="margin-top:8px">
+        <select id="ddDISTRIBUTION"><option value="">DISTRIBUTION (всички)</option></select>
+        <select id="ddZONE_IDS"><option value="">ZONE_IDS (Animals)</option></select>
+      </div>
+      <div class="row" style="margin-top:8px">
+        <label class="checkline"><input type="checkbox" id="cbENDEMIC"> ENDEMIC</label>
+        <label class="checkline"><input type="checkbox" id="cbRELICT"> RELICT</label>
+      </div>
+      <div style="margin-top:8px" id="extinctLine" class="checkline hidden">
+        <input type="checkbox" id="cbEXTINCT"> <label for="cbEXTINCT">EXTINCT (Plants/Fungi)</label>
+      </div>
+      <div class="btnbar">
+        <button id="btnClearFilters" title="Изчисти всички филтри">Изчисти филтрите</button>
+        <button id="btnClearSel" title="Изчисти селекцията на полигон">Изчисти селекцията</button>
+      </div>
+      <div class="legend muted">Съвет: изберете полигон от активния полигонов слой.</div>
+    </section>
+  </div>
+  <div id="count" class="muted">Изберете полигон.</div>
+  <div id="list" role="list" aria-label="Result list"></div>
+</div>
+
+<!-- Leaflet & Turf -->
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@turf/turf@6/turf.min.js"></script>
+<script>
+/* ---------- CONFIG: file paths ---------- */
+const MORPH_GEOJSON_URL = 'data/morph_units.geojson';
+const LANDSCAPE_GEOJSON_URL = 'data/landscape_zoning.geojson';
+const ANIMALS_GEOJSON_URL = 'data/Animals.geojson';
+const PLANTS_FUNGI_GEOJSON_URL = 'data/PlantsFungi.geojson';
+
+/* ---------- MAP ---------- */
+const map = L.map('map', { zoomControl: true }).setView([42.75, 25.3], 7);
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 20, attribution: '&copy; OpenStreetMap' }).addTo(map);
+
+/* ---------- STATE ---------- */
+const state = {
+  activePoly: 'morph',   // 'morph' | 'land'
+  activePts:  'animals', // 'animals' | 'plants'
+  selectedPolygonFeature: null,
+  selectedPolygonLayer: null,
+  explodedPoints: [],        // cache after polygon selection (unfiltered)
+  filteredPoints: [],        // cache after applyFilters
+  pointMarkerLayer: L.layerGroup().addTo(map),
+  idCounter: 0
+};
+
+/* ---------- UI elements ---------- */
+const el = {
+  search: document.getElementById('searchBox'),
+  ddSTATUS: document.getElementById('ddSTATUS'),
+  ddFAMILY: document.getElementById('ddFAMILY'),
+  ddTYPE: document.getElementById('ddTYPE'),
+  ddORDER: document.getElementById('ddORDER'),
+  ddDISTRIBUTION: document.getElementById('ddDISTRIBUTION'),
+  ddZONE_IDS: document.getElementById('ddZONE_IDS'),
+  cbENDEMIC: document.getElementById('cbENDEMIC'),
+  cbRELICT: document.getElementById('cbRELICT'),
+  cbEXTINCT: document.getElementById('cbEXTINCT'),
+  extinctLine: document.getElementById('extinctLine'),
+  rowTypeOrder: document.getElementById('rowTypeOrder'),
+  btnClearFilters: document.getElementById('btnClearFilters'),
+  btnClearSel: document.getElementById('btnClearSel'),
+  list: document.getElementById('list'),
+  count: document.getElementById('count')
+};
+
+/* ---------- Layers ---------- */
+const layers = { poly: {}, data: {} };
+
+/* Load all data, build polygon layers (clickable), store point FeatureCollections */
+Promise.all([
+  fetch(MORPH_GEOJSON_URL).then(r=>r.json()),
+  fetch(LANDSCAPE_GEOJSON_URL).then(r=>r.json()),
+  fetch(ANIMALS_GEOJSON_URL).then(r=>r.json()),
+  fetch(PLANTS_FUNGI_GEOJSON_URL).then(r=>r.json())
+]).then(([morph, land, animals, plants]) => {
+  layers.poly.morph = L.geoJSON(morph, {
+    style: { color: '#1f78b4', weight: 1, fillOpacity: 0.05 },
+    onEachFeature: (f, l) => l.on('click', () => onPolygonClick(f, l))
+  }).addTo(map);
+
+  layers.poly.land = L.geoJSON(land, {
+    style: { color: '#33a354', weight: 1, fillOpacity: 0.05 },
+    onEachFeature: (f, l) => l.on('click', () => onPolygonClick(f, l))
+  }); // not added by default
+
+  layers.data.animals = animals;
+  layers.data.plants = plants;
+
+  // Fit initial polygons
+  try { map.fitBounds(layers.poly.morph.getBounds(), { padding: [20,20] }); } catch(e){}
+
+  wireControls();
+  refreshFilterVisibility();
+});
+
+/* ---------- Polygon selection ---------- */
+function onPolygonClick(feature, layer) {
+  // switch to currently selected point category
+  state.activePts = document.querySelector('input[name="points"]:checked').value;
+
+  // Highlight polygon
+  if (state.selectedPolygonLayer) try { state.selectedPolygonLayer.setStyle({weight:1}); } catch(e){}
+  state.selectedPolygonLayer = layer;
+  state.selectedPolygonFeature = feature;
+  layer.setStyle({ weight: 3 });
+
+  // Explode & spatial filter
+  const ptsFC = layers.data[state.activePts];
+  state.explodedPoints = explodeMultiPoints(ptsFC);
+  const poly = feature; // GeoJSON feature
+  const inside = [];
+  for (const pt of state.explodedPoints) {
+    if (turf.booleanPointInPolygon(pt, poly)) inside.push(pt);
+  }
+
+  populateFilterDropdowns(inside);     // from raw result (pre-filter)
+  applyFiltersAndRender();             // will render list + markers
+}
+
+/* ---------- MultiPoint -> Point[] ---------- */
+function explodeMultiPoints(fc) {
+  const out = [];
+  for (const f of fc.features) {
+    if (!f || !f.geometry) continue;
+    if (f.geometry.type === 'MultiPoint') {
+      for (const c of f.geometry.coordinates) {
+        out.push({ type: 'Feature', geometry: { type: 'Point', coordinates: c }, properties: { ...f.properties } });
+      }
+    } else if (f.geometry.type === 'Point') {
+      out.push(f);
+    }
+  }
+  return out;
+}
+
+/* ---------- Filters ---------- */
+function isTruthy(v) {
+  if (v === null || v === undefined) return false;
+  const s = String(v).trim().toLowerCase();
+  return ['1','y','yes','true','да','yes/да','true/да'].includes(s) || s.startsWith('y') || s.startsWith('д');
+}
+
+function uniqueSorted(values) {
+  return [...new Set(values.filter(v => v !== null && v !== undefined && String(v).trim() !== ''))]
+    .map(String).sort((a,b)=>a.localeCompare(b,'bg',{sensitivity:'base'}));
+}
+
+function populateFilterDropdowns(features) {
+  // Read unique values from features (pre-filter)
+  const vals = { STATUS:[], FAMILY:[], TYPE:[], ORDER:[], DISTRIBUTION:[], ZONE_IDS:[] };
+  for (const f of features) {
+    const p = f.properties || {};
+    if (p.STATUS!=null) vals.STATUS.push(p.STATUS);
+    if (p.FAMILY!=null) vals.FAMILY.push(p.FAMILY);
+    if (p.TYPE!=null) vals.TYPE.push(p.TYPE);
+    if (p.ORDER!=null) vals.ORDER.push(p.ORDER);
+    if (p.DISTRIBUTION!=null) vals.DISTRIBUTION.push(p.DISTRIBUTION);
+    if (p.ZONE_IDS!=null) vals.ZONE_IDS.push(p.ZONE_IDS);
+  }
+  // Fill dropdowns
+  fillSelect(el.ddSTATUS, ['','...'].concat(uniqueSorted(vals.STATUS)), 'STATUS (всички)');
+  fillSelect(el.ddFAMILY, ['','...'].concat(uniqueSorted(vals.FAMILY)), 'FAMILY (всички)');
+  fillSelect(el.ddTYPE, ['','...'].concat(uniqueSorted(vals.TYPE)), 'TYPE (всички)');
+  fillSelect(el.ddORDER, ['','...'].concat(uniqueSorted(vals.ORDER)), 'ORDER (всички)');
+  fillSelect(el.ddDISTRIBUTION, ['','...'].concat(uniqueSorted(vals.DISTRIBUTION)), 'DISTRIBUTION (всички)');
+
+  // ZONE_IDS — само за Animals; ако има твърде много уникати, оставяме празно
+  const zuniq = uniqueSorted(vals.ZONE_IDS);
+  const useZone = (state.activePts === 'animals' && zuniq.length > 0 && zuniq.length <= 200);
+  if (useZone) {
+    fillSelect(el.ddZONE_IDS, ['','...'].concat(zuniq), 'ZONE_IDS (всички)');
+    el.ddZONE_IDS.parentElement.classList.remove('hidden');
+  } else {
+    fillSelect(el.ddZONE_IDS, [''], 'ZONE_IDS (Animals)');
+    el.ddZONE_IDS.parentElement.classList.add('hidden');
+  }
+}
+
+function fillSelect(sel, values, firstLabel) {
+  const current = sel.value;
+  sel.innerHTML = '';
+  const mk = (val, label) => {
+    const opt = document.createElement('option');
+    opt.value = val;
+    opt.textContent = label ?? val;
+    return opt;
+  };
+  sel.appendChild(mk('', firstLabel || '(всички)'));
+  for (const v of values) {
+    if (v === '') continue;
+    sel.appendChild(mk(v, v));
+  }
+  // try to keep previous selection if still present
+  if ([...sel.options].some(o=>o.value===current)) sel.value = current;
+}
+
+/* Core filter apply */
+function applyFiltersAndRender() {
+  if (!state.selectedPolygonFeature) {
+    el.count.textContent = 'Изберете полигон.';
+    el.list.innerHTML = '';
+    state.pointMarkerLayer.clearLayers();
+    return;
+  }
+  const search = normalize(el.search.value);
+  const sel = {
+    STATUS: el.ddSTATUS.value,
+    FAMILY: el.ddFAMILY.value,
+    TYPE: el.ddTYPE.value,
+    ORDER: el.ddORDER.value,
+    DISTRIBUTION: el.ddDISTRIBUTION.value,
+    ZONE_IDS: el.ddZONE_IDS.value,
+    ENDEMIC: el.cbENDEMIC.checked,
+    RELICT: el.cbRELICT.checked,
+    EXTINCT: el.cbEXTINCT.checked
+  };
+
+  let arr = state.explodedPoints;
+  if (!arr) arr = [];
+
+  const filtered = [];
+  for (const f of arr) {
+    const p = f.properties || {};
+    // text search (BG_NAME, LATIN_NAME)
+    const nameBG = normalize(p.BG_NAME);
+    const nameLA = normalize(p.LATIN_NAME);
+    if (search && !(nameBG.includes(search) || nameLA.includes(search))) continue;
+
+    // dropdown equality (if value chosen)
+    if (sel.STATUS && String(p.STATUS) !== sel.STATUS) continue;
+    if (sel.FAMILY && String(p.FAMILY) !== sel.FAMILY) continue;
+
+    // Animals-only fields present in Animals; ignore on Plants
+    if (state.activePts === 'animals') {
+      if (sel.TYPE && String(p.TYPE) !== sel.TYPE) continue;
+      if (sel.ORDER && String(p.ORDER) !== sel.ORDER) continue;
+      if (sel.ZONE_IDS && String(p.ZONE_IDS) !== sel.ZONE_IDS) continue;
+    }
+
+    // DISTRIBUTION exists in both (if provided)
+    if (sel.DISTRIBUTION && String(p.DISTRIBUTION) !== sel.DISTRIBUTION) continue;
+
+    // checkboxes (truthy)
+    if (sel.ENDEMIC && !isTruthy(p.ENDEMIC)) continue;
+    if (sel.RELICT && !isTruthy(p.RELICT)) continue;
+
+    // EXTINCT only for Plants/Fungi
+    if (state.activePts === 'plants' && sel.EXTINCT && !isTruthy(p.EXTINCT)) continue;
+
+    filtered.push(f);
+  }
+
+  state.filteredPoints = filtered;
+  renderListAndMarkers(filtered);
+}
+
+/* normalize string for case/diacritic-insensitive search */
+function normalize(v) {
+  if (v == null) return '';
+  try {
+    return String(v).toLowerCase().normalize('NFD').replace(/\p{Diacritic}/gu,'');
+  } catch(e) {
+    return String(v).toLowerCase();
+  }
+}
+
+/* Render list and markers */
+function renderListAndMarkers(features) {
+  // Count
+  el.count.textContent = features.length ? `Намерени: ${features.length}` : 'Няма съвпадения.';
+
+  // Clear UI
+  el.list.innerHTML = '';
+  state.pointMarkerLayer.clearLayers();
+
+  // Markers
+  const markerById = new Map();
+
+  for (const f of features) {
+    const id = ++state.idCounter;
+    const [lng,lat] = f.geometry.coordinates;
+    const p = f.properties || {};
+    const marker = L.marker([lat,lng], {
+      icon: L.divIcon({ className: 'pt-marker', iconSize: [10,10] }),
+      title: (p.BG_NAME || p.LATIN_NAME || 'Point')
+    }).addTo(state.pointMarkerLayer);
+
+    marker.on('click', () => openPopupAt([lat,lng], p));
+    markerById.set(id, marker);
+
+    // List item
+    const div = document.createElement('div');
+    div.className = 'feature-item';
+    div.setAttribute('role', 'listitem');
+    const main = `${p.BG_NAME || ''} ${p.LATIN_NAME ? `(${p.LATIN_NAME})` : ''}`;
+    const extra = [];
+    if (p.STATUS) extra.push(`STATUS: ${p.STATUS}`);
+    if (state.activePts==='animals' && p.TYPE) extra.push(`TYPE: ${p.TYPE}`);
+    if (p.FAMILY) extra.push(`FAMILY: ${p.FAMILY}`);
+    div.innerHTML = `<div>${escapeHTML(main)} ${p.ENDEMIC&&isTruthy(p.ENDEMIC)?'<span class="badge">ENDEMIC</span>':''} ${p.RELICT&&isTruthy(p.RELICT)?'<span class="badge">RELICT</span>':''} ${state.activePts==='plants' && isTruthy(p.EXTINCT)?'<span class="badge">EXTINCT</span>':''}</div>
+                     <div class="muted" style="font-size:12px">${escapeHTML(extra.join(' · '))}</div>`;
+    div.onmouseenter = () => marker._icon?.classList.add('highlight');
+    div.onmouseleave = () => marker._icon?.classList.remove('highlight');
+    div.onclick = () => {
+      openPopupAt([lat,lng], p);
+      map.setView([lat,lng], Math.max(map.getZoom(), 10), {animate:true});
+    };
+    el.list.appendChild(div);
+  }
+
+  // Fit to selection (optional)
+  if (features.length) {
+    try {
+      const bounds = L.latLngBounds(features.map(f => [f.geometry.coordinates[1], f.geometry.coordinates[0]]));
+      map.fitBounds(bounds.pad(0.2));
+    } catch(e){}
+  }
+}
+
+/* Popup table */
+function openPopupAt(latlng, props) {
+  const rows = [];
+  const keysOrder = [
+    'BG_NAME','LATIN_NAME','STATUS','TYPE','ORDER','FAMILY','DISTRIBUTION','ENDEMIC','RELICT','EXTINCT','ZONE_IDS'
+  ];
+  for (const k of keysOrder) {
+    if (props[k] !== undefined) rows.push(`<tr><th style="text-align:left; padding-right:8px">${escapeHTML(k)}</th><td>${escapeHTML(props[k])}</td></tr>`);
+  }
+  // plus any other keys
+  for (const k of Object.keys(props)) {
+    if (!keysOrder.includes(k)) rows.push(`<tr><th style="text-align:left; padding-right:8px">${escapeHTML(k)}</th><td>${escapeHTML(props[k])}</td></tr>`);
+  }
+  const html = `<table style="font-size:13px">${rows.join('')}</table>`;
+  L.popup().setLatLng(latlng).setContent(html).openOn(map);
+}
+
+/* ---------- Controls / Events ---------- */
+function wireControls() {
+  // radio: polygon layer
+  document.querySelectorAll('input[name="poly"]').forEach(r => {
+    r.addEventListener('change', () => {
+      // switch layers: exactly one visible
+      map.removeLayer(layers.poly[state.activePoly]);
+      state.activePoly = r.value;
+      map.addLayer(layers.poly[state.activePoly]);
+      clearSelection();
+      try { map.fitBounds(layers.poly[state.activePoly].getBounds(), { padding: [20,20] }); } catch(e){}
+    });
+  });
+
+  // radio: point layer
+  document.querySelectorAll('input[name="points"]').forEach(r => {
+    r.addEventListener('change', () => {
+      state.activePts = r.value;
+      refreshFilterVisibility();
+      // If a polygon is selected, re-run selection pipeline to rebuild filters from that set
+      if (state.selectedPolygonFeature) {
+        onPolygonClick(state.selectedPolygonFeature, state.selectedPolygonLayer);
+      } else {
+        clearSelection();
+      }
+    });
+  });
+
+  // text search with debounce
+  let t;
+  el.search.addEventListener('input', () => {
+    clearTimeout(t);
+    t = setTimeout(applyFiltersAndRender, 300);
+  });
+
+  // dropdowns & checkboxes
+  [el.ddSTATUS, el.ddFAMILY, el.ddTYPE, el.ddORDER, el.ddDISTRIBUTION, el.ddZONE_IDS,
+   el.cbENDEMIC, el.cbRELICT, el.cbEXTINCT].forEach(ctrl => {
+    ctrl.addEventListener('change', applyFiltersAndRender);
+  });
+
+  // clear filters
+  el.btnClearFilters.addEventListener('click', () => {
+    el.search.value = '';
+    [el.ddSTATUS, el.ddFAMILY, el.ddTYPE, el.ddORDER, el.ddDISTRIBUTION, el.ddZONE_IDS].forEach(sel => sel.value = '');
+    el.cbENDEMIC.checked = false;
+    el.cbRELICT.checked = false;
+    el.cbEXTINCT.checked = false;
+    applyFiltersAndRender();
+  });
+
+  // clear polygon selection
+  el.btnClearSel.addEventListener('click', clearSelection);
+}
+
+function clearSelection() {
+  if (state.selectedPolygonLayer) try { state.selectedPolygonLayer.setStyle({weight:1}); } catch(e){}
+  state.selectedPolygonLayer = null;
+  state.selectedPolygonFeature = null;
+  state.explodedPoints = [];
+  state.filteredPoints = [];
+  state.pointMarkerLayer.clearLayers();
+  el.list.innerHTML = '';
+  el.count.textContent = 'Изберете полигон.';
+}
+
+function refreshFilterVisibility() {
+  const isAnimals = state.activePts === 'animals';
+  // TYPE & ORDER only for Animals
+  el.rowTypeOrder.classList.toggle('hidden', !isAnimals);
+  // ZONE_IDS only meaningful for Animals (handled in populate)
+  // EXTINCT only for Plants/Fungi
+  el.extinctLine.classList.toggle('hidden', isAnimals);
+}
+
+/* ---------- Utils ---------- */
+function escapeHTML(v) {
+  if (v===null || v===undefined) return '';
+  return String(v)
+   .replaceAll('&','&amp;')
+   .replaceAll('<','&lt;')
+   .replaceAll('>','&gt;')
+   .replaceAll('"','&quot;')
+   .replaceAll("'",'&#39;');
+}
+</script>
+</body>
+</html>
