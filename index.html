@@ -197,9 +197,9 @@
         <label><input type="radio" name="points" value="animals" checked> Том II. Животни</label>
       </section>
       <section>
-        <input id="searchBox" type="text" placeholder="Търси в BG_NAME / LATIN_NAME…" aria-label="Search">
+        <input id="searchBox" type="text" placeholder="Потърси по наименование" aria-label="Search">
         <div class="row" style="margin-top:8px">
-          <select id="ddSTATUS"><option value="">Природозащитен статус (всички)</option></select>
+          <select id="ddSTATUS"><option value="">Статус (всички)</option></select>
           <select id="ddFAMILY"><option value="">Семейство (всички)</option></select>
         </div>
         <div class="row" id="rowTypeOrder" style="margin-top:8px">
@@ -212,9 +212,9 @@
         </div>
         <div class="btnbar">
           <button id="btnClearFilters" title="Изчисти всички филтри">Изчисти филтрите</button>
-          <button id="btnClearSel" title="Изчисти селекцията на полигон">Изчисти селекцията</button>
+          <button id="btnClearSel" title="Изчисти селекцията на територията">Изчисти селекцията</button>
         </div>
-        <div class="legend muted">Съвет: напишете търсене или изберете полигон/филтри.</div>
+        <div class="legend muted">Съвет: Въведете филтър или изберете територия на картата/филтри.</div>
       </section>
     </div>
     <div id="count" class="muted">Въведете търсене или изберете филтър.</div>
@@ -493,7 +493,7 @@
         for (const m of state.currentMarkers) state.pointMarkerLayer.addLayer(m);
         const speciesCount = new Set(state.filteredPoints.map(f => speciesKey(f.properties))).size;
         document.getElementById('count').textContent =
-          `Намерени видове: ${speciesCount} (точки: ${state.filteredPoints.length})`;
+          `Намерени видове: ${speciesCount} (Общ брой нахождения: ${state.filteredPoints.length})`;
         return;
       }
       const group = state.currentMarkersByKey.get(state.selectedSpeciesKey) || [];
@@ -502,7 +502,7 @@
         m._icon?.classList.add('highlight');
       }
       document.getElementById('count').textContent =
-        `Намерени видове: 1 (точки: ${group.length})`;
+        `Намерени видове: 1 (Общ брой нахождения: ${group.length})`;
     }
 
     /* ---------- Основен филтър и рендер ---------- */
@@ -652,7 +652,7 @@
           cnt.className = 'chip';
           cnt.style.background = '#eef';
           cnt.style.borderColor = '#ccd';
-          cnt.title = 'Брой точки за вида';
+          cnt.title = 'Брой нахождения за вида';
           cnt.textContent = item.count;
           meta.appendChild(cnt);
         }
@@ -710,7 +710,7 @@
       }
 
       // Обнови брояча (по подразбиране – всички филтрирани)
-      el.count.textContent = `Намерени видове: ${uniqueList.length} (точки: ${totalPoints})`;
+      el.count.textContent = `Намерени видове: ${uniqueList.length} (Общ брой нахождения: ${totalPoints})`;
 
       // Ако има активна селекция по вид, приложи филтъра
       if (state.selectedSpeciesKey) filterMarkersToSelectedSpecies();
@@ -847,3 +847,4 @@
   </script>
 </body>
 </html>
+
