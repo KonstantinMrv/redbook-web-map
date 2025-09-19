@@ -82,23 +82,22 @@
     <section>
       <input id="searchBox" type="text" placeholder="Търси в BG_NAME / LATIN_NAME…" aria-label="Search">
       <div class="row" style="margin-top:8px">
-        <select id="ddSTATUS"><option value="">STATUS (всички)</option></select>
-        <select id="ddFAMILY"><option value="">FAMILY (всички)</option></select>
+        <select id="ddSTATUS"><option value="">Природозащитен статус (всички)</option></select>
+        <select id="ddFAMILY"><option value="">Семейство (всички)</option></select>
       </div>
       <div class="row" id="rowTypeOrder" style="margin-top:8px">
-        <select id="ddTYPE"><option value="">TYPE (всички)</option></select>
-        <select id="ddORDER"><option value="">ORDER (всички)</option></select>
+        <select id="ddTYPE"><option value="">Тип (всички)</option></select>
+        <select id="ddORDER"><option value="">Разред (всички)</option></select>
       </div>
       <div class="row" style="margin-top:8px">
-        <select id="ddDISTRIBUTION"><option value="">DISTRIBUTION (всички)</option></select>
-        <select id="ddZONE_IDS"><option value="">ZONE_IDS (Animals)</option></select>
+        <select id="ddDISTRIBUTION"><option value="">Разпространение (всички)</option></select>
       </div>
       <div class="row" style="margin-top:8px">
-        <label class="checkline"><input type="checkbox" id="cbENDEMIC"> ENDEMIC</label>
-        <label class="checkline"><input type="checkbox" id="cbRELICT"> RELICT</label>
+        <label class="checkline"><input type="checkbox" id="cbENDEMIC"> Ендемит</label>
+        <label class="checkline"><input type="checkbox" id="cbRELICT"> Реликт</label>
       </div>
       <div style="margin-top:8px" id="extinctLine" class="checkline hidden">
-        <input type="checkbox" id="cbEXTINCT"> <label for="cbEXTINCT">EXTINCT (Plants/Fungi)</label>
+        <input type="checkbox" id="cbEXTINCT"> <label for="cbEXTINCT">Изчезнал (Plants/Fungi)</label>
       </div>
       <div class="btnbar">
         <button id="btnClearFilters" title="Изчисти всички филтри">Изчисти филтрите</button>
@@ -148,7 +147,6 @@ const el = {
   ddTYPE: document.getElementById('ddTYPE'),
   ddORDER: document.getElementById('ddORDER'),
   ddDISTRIBUTION: document.getElementById('ddDISTRIBUTION'),
-  ddZONE_IDS: document.getElementById('ddZONE_IDS'),
   cbENDEMIC: document.getElementById('cbENDEMIC'),
   cbRELICT: document.getElementById('cbRELICT'),
   cbEXTINCT: document.getElementById('cbEXTINCT'),
@@ -261,31 +259,21 @@ function uniqueSorted(values) {
     .map(String).sort((a,b)=>a.localeCompare(b,'bg',{sensitivity:'base'}));
 }
 function populateFilterDropdowns(features) {
-  const vals = { STATUS:[], FAMILY:[], TYPE:[], ORDER:[], DISTRIBUTION:[], ZONE_IDS:[] };
+  const vals = { STATUS:[], FAMILY:[], TYPE:[], ORDER:[], DISTRIBUTION:[] };
   for (const f of features) {
     const p = f.properties || {};
-    if (p.STATUS!=null) vals.STATUS.push(p.STATUS);
-    if (p.FAMILY!=null) vals.FAMILY.push(p.FAMILY);
-    if (p.TYPE!=null) vals.TYPE.push(p.TYPE);
-    if (p.ORDER!=null) vals.ORDER.push(p.ORDER);
-    if (p.DISTRIBUTION!=null) vals.DISTRIBUTION.push(p.DISTRIBUTION);
-    if (p.ZONE_IDS!=null) vals.ZONE_IDS.push(p.ZONE_IDS);
+    if (p.STATUS!=null)        vals.STATUS.push(p.STATUS);
+    if (p.FAMILY!=null)        vals.FAMILY.push(p.FAMILY);
+    if (p.TYPE!=null)          vals.TYPE.push(p.TYPE);
+    if (p.ORDER!=null)         vals.ORDER.push(p.ORDER);
+    if (p.DISTRIBUTION!=null)  vals.DISTRIBUTION.push(p.DISTRIBUTION);
   }
-  fillSelect(el.ddSTATUS, ['','...'].concat(uniqueSorted(vals.STATUS)), 'STATUS (всички)');
-  fillSelect(el.ddFAMILY, ['','...'].concat(uniqueSorted(vals.FAMILY)), 'FAMILY (всички)');
-  fillSelect(el.ddTYPE, ['','...'].concat(uniqueSorted(vals.TYPE)), 'TYPE (всички)');
-  fillSelect(el.ddORDER, ['','...'].concat(uniqueSorted(vals.ORDER)), 'ORDER (всички)');
-  fillSelect(el.ddDISTRIBUTION, ['','...'].concat(uniqueSorted(vals.DISTRIBUTION)), 'DISTRIBUTION (всички)');
-
-  const zuniq = uniqueSorted(vals.ZONE_IDS);
-  const useZone = (state.activePts === 'animals' && zuniq.length > 0 && zuniq.length <= 200);
-  if (useZone) {
-    fillSelect(el.ddZONE_IDS, ['','...'].concat(zuniq), 'ZONE_IDS (всички)');
-    el.ddZONE_IDS.parentElement.classList.remove('hidden');
-  } else {
-    fillSelect(el.ddZONE_IDS, [''], 'ZONE_IDS (Animals)');
-    el.ddZONE_IDS.parentElement.classList.add('hidden');
-  }
+  // Алиаси на български
+  fillSelect(el.ddSTATUS,       ['','...'].concat(uniqueSorted(vals.STATUS)),       'Природозащитен статус (всички)');
+  fillSelect(el.ddFAMILY,       ['','...'].concat(uniqueSorted(vals.FAMILY)),       'Семейство (всички)');
+  fillSelect(el.ddTYPE,         ['','...'].concat(uniqueSorted(vals.TYPE)),         'Тип (всички)');
+  fillSelect(el.ddORDER,        ['','...'].concat(uniqueSorted(vals.ORDER)),        'Разред (всички)');
+  fillSelect(el.ddDISTRIBUTION, ['','...'].concat(uniqueSorted(vals.DISTRIBUTION)), 'Разпространение (всички)');
 }
 function fillSelect(sel, values, firstLabel) {
   const current = sel.value;
@@ -333,7 +321,6 @@ function applyFiltersAndRender() {
     TYPE: el.ddTYPE.value,
     ORDER: el.ddORDER.value,
     DISTRIBUTION: el.ddDISTRIBUTION.value,
-    ZONE_IDS: el.ddZONE_IDS.value,
     ENDEMIC: el.cbENDEMIC.checked,
     RELICT: el.cbRELICT.checked,
     EXTINCT: el.cbEXTINCT.checked
@@ -347,17 +334,16 @@ function applyFiltersAndRender() {
     const nameLA = normalize(p.LATIN_NAME);
     if (search && !(nameBG.includes(search) || nameLA.includes(search))) continue;
 
-    if (sel.STATUS && String(p.STATUS) !== sel.STATUS) continue;
-    if (sel.FAMILY && String(p.FAMILY) !== sel.FAMILY) continue;
-
+    if (sel.STATUS        && String(p.STATUS)        !== sel.STATUS)        continue;
+    if (sel.FAMILY        && String(p.FAMILY)        !== sel.FAMILY)        continue;
     if (state.activePts === 'animals') {
-      if (sel.TYPE && String(p.TYPE) !== sel.TYPE) continue;
-      if (sel.ORDER && String(p.ORDER) !== sel.ORDER) continue;
-      if (sel.ZONE_IDS && String(p.ZONE_IDS) !== sel.ZONE_IDS) continue;
+      if (sel.TYPE        && String(p.TYPE)          !== sel.TYPE)          continue;
+      if (sel.ORDER       && String(p.ORDER)         !== sel.ORDER)         continue;
     }
-    if (sel.DISTRIBUTION && String(p.DISTRIBUTION) !== sel.DISTRIBUTION) continue;
+    if (sel.DISTRIBUTION  && String(p.DISTRIBUTION)  !== sel.DISTRIBUTION)  continue;
+
     if (sel.ENDEMIC && !isTruthy(p.ENDEMIC)) continue;
-    if (sel.RELICT && !isTruthy(p.RELICT)) continue;
+    if (sel.RELICT  && !isTruthy(p.RELICT))  continue;
     if (state.activePts === 'plants' && sel.EXTINCT && !isTruthy(p.EXTINCT)) continue;
 
     filtered.push(f);
@@ -420,9 +406,9 @@ function renderListAndMarkers(features) {
     div.className = 'feature-item';
     const main = `${p.BG_NAME || ''} ${p.LATIN_NAME ? `(${p.LATIN_NAME})` : ''}`;
     const badges = [
-      p.ENDEMIC && isTruthy(p.ENDEMIC) ? '<span class="badge">ENDEMIC</span>' : '',
-      p.RELICT  && isTruthy(p.RELICT)  ? '<span class="badge">RELICT</span>'  : '',
-      (state.activePts==='plants' && isTruthy(p.EXTINCT)) ? '<span class="badge">EXTINCT</span>' : ''
+      p.ENDEMIC && isTruthy(p.ENDEMIC) ? '<span class="badge">Ендемит</span>' : '',
+      p.RELICT  && isTruthy(p.RELICT)  ? '<span class="badge">Реликт</span>'  : '',
+      (state.activePts==='plants' && isTruthy(p.EXTINCT)) ? '<span class="badge">Изчезнал</span>' : ''
     ].join(' ');
     div.innerHTML = `
       <div>${escapeHTML(main)} ${badges}</div>
@@ -434,16 +420,25 @@ function renderListAndMarkers(features) {
 
     div.onclick = () => {
       state.selectedSpeciesKey = item.key;
+      // махаме предишни подсветки
       for (const m of state.currentMarkers) m._icon?.classList.remove('highlight');
+
       const group = state.currentMarkersByKey.get(item.key) || [];
       const gb = [];
       for (const m of group) {
         m._icon?.classList.add('highlight');
         gb.push(m.getLatLng());
       }
-      if (gb.length) {
+
+      if (gb.length === 1) {
+        // Една точка → умерен зуум (между 10 и 11)
+        const target = gb[0];
+        const targetZoom = Math.max(10, Math.min(11, map.getZoom()));
+        map.setView(target, targetZoom, { animate: true });
+      } else if (gb.length > 1) {
+        // Няколко точки → fitBounds с ограничение maxZoom, за да не приближава прекалено
         const b = L.latLngBounds(gb);
-        map.fitBounds(b.pad(0.25));
+        map.fitBounds(b.pad(0.25), { maxZoom: 12 });
       }
     };
 
@@ -461,7 +456,7 @@ function renderListAndMarkers(features) {
 function openPopupAt(latlng, props) {
   const rows = [];
   const keysOrder = [
-    'BG_NAME','LATIN_NAME','STATUS','TYPE','ORDER','FAMILY','DISTRIBUTION','ENDEMIC','RELICT','EXTINCT','ZONE_IDS'
+    'BG_NAME','LATIN_NAME','STATUS','TYPE','ORDER','FAMILY','DISTRIBUTION','ENDEMIC','RELICT','EXTINCT'
   ];
   for (const k of keysOrder) {
     if (props[k] !== undefined) rows.push(`<tr><th style="text-align:left; padding-right:8px">${escapeHTML(k)}</th><td>${escapeHTML(props[k])}</td></tr>`);
@@ -503,16 +498,16 @@ function wireControls() {
     t = setTimeout(applyFiltersAndRender, 300);
   });
 
-  [el.ddSTATUS, el.ddFAMILY, el.ddTYPE, el.ddORDER, el.ddDISTRIBUTION, el.ddZONE_IDS,
+  [el.ddSTATUS, el.ddFAMILY, el.ddTYPE, el.ddORDER, el.ddDISTRIBUTION,
    el.cbENDEMIC, el.cbRELICT, el.cbEXTINCT].forEach(ctrl => {
     ctrl.addEventListener('change', applyFiltersAndRender);
   });
 
   el.btnClearFilters.addEventListener('click', () => {
     el.search.value = '';
-    [el.ddSTATUS, el.ddFAMILY, el.ddTYPE, el.ddORDER, el.ddDISTRIBUTION, el.ddZONE_IDS].forEach(sel => sel.value = '');
+    [el.ddSTATUS, el.ddFAMILY, el.ddTYPE, el.ddORDER, el.ddDISTRIBUTION].forEach(sel => sel.value = '');
     el.cbENDEMIC.checked = false;
-    el.cbRELICT.checked = false;
+    el.cbRELICT.checked  = false;
     el.cbEXTINCT.checked = false;
     applyFiltersAndRender();
   });
