@@ -38,12 +38,23 @@
     .muted { color:#666; }
     .hidden { display:none !important; }
 
-    /* Leaflet marker style for points */
+    /* Leaflet point markers */
     .pt-marker {
       background: #1f78b4; width: 8px; height: 8px; border-radius: 50%; border: 1px solid white;
       box-shadow: 0 0 0 1px rgba(0,0,0,.15);
     }
     .pt-marker.highlight { background:#ff7f0e; }
+
+    /* Polygon labels */
+    .poly-label {
+      background: rgba(255,255,255,0.75);
+      padding: 2px 6px;
+      border-radius: 8px;
+      border: 1px solid #ccc;
+      font-size: 12px;
+      color: #333;
+      box-shadow: 0 1px 3px rgba(0,0,0,.15);
+    }
   </style>
 </head>
 <body>
@@ -117,7 +128,10 @@ const state = {
   explodedPoints: [],        // cache after polygon selection (unfiltered)
   filteredPoints: [],        // cache after applyFilters
   pointMarkerLayer: L.layerGroup().addTo(map),
-  idCounter: 0
+  idCounter: 0,
+  currentMarkers: [],
+  currentMarkersByKey: new Map(),
+  selectedSpeciesKey: null
 };
 
 /* ---------- UI elements ---------- */
@@ -143,6 +157,11 @@ const el = {
 /* ---------- Layers ---------- */
 const layers = { poly: {}, data: {} };
 
+/* Helper: polygon label text from NAME field */
+function getPolyLabel(props = {}) {
+  return props.NAME || '';
+}
+
 /* Load all data, build polygon layers (clickable), store point FeatureCollections */
 Promise.all([
   fetch(MORPH_GEOJSON_URL).then(r=>r.json()),
@@ -151,19 +170,26 @@ Promise.all([
   fetch(PLANTS_FUNGI_GEOJSON_URL).then(r=>r.json())
 ]).then(([morph, land, animals, plants]) => {
   layers.poly.morph = L.geoJSON(morph, {
-    style: { color: '#1f78b4', weight: 1, fillOpacity: 0.05 },
-    onEachFeature: (f, l) => l.on('click', () => onPolygonClick(f, l))
+    style: { color: '#B08D57', weight: 1, fillColor: '#F3E5AB', fillOpacity: 0.65 }, // бежово, 35% transparency
+    onEachFeature: (f, l) => {
+      l.on('click', () => onPolygonClick(f, l));
+      const lbl = getPolyLabel(f.properties);
+      if (lbl) l.bindTooltip(lbl, { permanent: true, direction: 'center', className: 'poly-label' });
+    }
   }).addTo(map);
 
   layers.poly.land = L.geoJSON(land, {
-    style: { color: '#33a354', weight: 1, fillOpacity: 0.05 },
-    onEachFeature: (f, l) => l.on('click', () => onPolygonClick(f, l))
-  }); // not added by default
+    style: { color: '#5A8F68', weight: 1, fillColor: '#CDE8B8', fillOpacity: 0.65 }, // зеленикаво, 35% transparency
+    onEachFeature: (f, l) => {
+      l.on('click', () => onPolygonClick(f, l));
+      const lbl = getPolyLabel(f.properties);
+      if (lbl) l.bindTooltip(lbl, { permanent: true, direction: 'center', className: 'poly-label' });
+    }
+  }); // не е добавен по начало
 
   layers.data.animals = animals;
   layers.data.plants = plants;
 
-  // Fit initial polygons
   try { map.fitBounds(layers.poly.morph.getBounds(), { padding: [20,20] }); } catch(e){}
 
   wireControls();
@@ -172,26 +198,23 @@ Promise.all([
 
 /* ---------- Polygon selection ---------- */
 function onPolygonClick(feature, layer) {
-  // switch to currently selected point category
   state.activePts = document.querySelector('input[name="points"]:checked').value;
 
-  // Highlight polygon
   if (state.selectedPolygonLayer) try { state.selectedPolygonLayer.setStyle({weight:1}); } catch(e){}
   state.selectedPolygonLayer = layer;
   state.selectedPolygonFeature = feature;
   layer.setStyle({ weight: 3 });
 
-  // Explode & spatial filter
   const ptsFC = layers.data[state.activePts];
   state.explodedPoints = explodeMultiPoints(ptsFC);
-  const poly = feature; // GeoJSON feature
+
   const inside = [];
   for (const pt of state.explodedPoints) {
-    if (turf.booleanPointInPolygon(pt, poly)) inside.push(pt);
+    if (turf.booleanPointInPolygon(pt, feature)) inside.push(pt);
   }
 
-  populateFilterDropdowns(inside);     // from raw result (pre-filter)
-  applyFiltersAndRender();             // will render list + markers
+  populateFilterDropdowns(inside);
+  applyFiltersAndRender();
 }
 
 /* ---------- MultiPoint -> Point[] ---------- */
@@ -214,7 +237,7 @@ function explodeMultiPoints(fc) {
 function isTruthy(v) {
   if (v === null || v === undefined) return false;
   const s = String(v).trim().toLowerCase();
-  return ['1','y','yes','true','да','yes/да','true/да'].includes(s) || s.startsWith('y') || s.startsWith('д');
+  return ['1','y','yes','true','да'].includes(s) || s.startsWith('y') || s.startsWith('д');
 }
 
 function uniqueSorted(values) {
@@ -223,7 +246,6 @@ function uniqueSorted(values) {
 }
 
 function populateFilterDropdowns(features) {
-  // Read unique values from features (pre-filter)
   const vals = { STATUS:[], FAMILY:[], TYPE:[], ORDER:[], DISTRIBUTION:[], ZONE_IDS:[] };
   for (const f of features) {
     const p = f.properties || {};
@@ -234,14 +256,12 @@ function populateFilterDropdowns(features) {
     if (p.DISTRIBUTION!=null) vals.DISTRIBUTION.push(p.DISTRIBUTION);
     if (p.ZONE_IDS!=null) vals.ZONE_IDS.push(p.ZONE_IDS);
   }
-  // Fill dropdowns
   fillSelect(el.ddSTATUS, ['','...'].concat(uniqueSorted(vals.STATUS)), 'STATUS (всички)');
   fillSelect(el.ddFAMILY, ['','...'].concat(uniqueSorted(vals.FAMILY)), 'FAMILY (всички)');
   fillSelect(el.ddTYPE, ['','...'].concat(uniqueSorted(vals.TYPE)), 'TYPE (всички)');
   fillSelect(el.ddORDER, ['','...'].concat(uniqueSorted(vals.ORDER)), 'ORDER (всички)');
   fillSelect(el.ddDISTRIBUTION, ['','...'].concat(uniqueSorted(vals.DISTRIBUTION)), 'DISTRIBUTION (всички)');
 
-  // ZONE_IDS — само за Animals; ако има твърде много уникати, оставяме празно
   const zuniq = uniqueSorted(vals.ZONE_IDS);
   const useZone = (state.activePts === 'animals' && zuniq.length > 0 && zuniq.length <= 200);
   if (useZone) {
@@ -267,11 +287,27 @@ function fillSelect(sel, values, firstLabel) {
     if (v === '') continue;
     sel.appendChild(mk(v, v));
   }
-  // try to keep previous selection if still present
   if ([...sel.options].some(o=>o.value===current)) sel.value = current;
 }
 
-/* Core filter apply */
+/* normalize string for case/diacritic-insensitive search */
+function normalize(v) {
+  if (v == null) return '';
+  try {
+    return String(v).toLowerCase().normalize('NFD').replace(/\p{Diacritic}/gu,'');
+  } catch(e) {
+    return String(v).toLowerCase();
+  }
+}
+
+/* Key for species (unique list) */
+function speciesKey(props = {}) {
+  const la = (props.LATIN_NAME || '').trim();
+  const bg = (props.BG_NAME || '').trim();
+  return `${la}||${bg}`;
+}
+
+/* Apply filters and render unique list + highlight groups */
 function applyFiltersAndRender() {
   if (!state.selectedPolygonFeature) {
     el.count.textContent = 'Изберете полигон.';
@@ -292,36 +328,25 @@ function applyFiltersAndRender() {
     EXTINCT: el.cbEXTINCT.checked
   };
 
-  let arr = state.explodedPoints;
-  if (!arr) arr = [];
-
+  let arr = state.explodedPoints || [];
   const filtered = [];
   for (const f of arr) {
     const p = f.properties || {};
-    // text search (BG_NAME, LATIN_NAME)
     const nameBG = normalize(p.BG_NAME);
     const nameLA = normalize(p.LATIN_NAME);
     if (search && !(nameBG.includes(search) || nameLA.includes(search))) continue;
 
-    // dropdown equality (if value chosen)
     if (sel.STATUS && String(p.STATUS) !== sel.STATUS) continue;
     if (sel.FAMILY && String(p.FAMILY) !== sel.FAMILY) continue;
 
-    // Animals-only fields present in Animals; ignore on Plants
     if (state.activePts === 'animals') {
       if (sel.TYPE && String(p.TYPE) !== sel.TYPE) continue;
       if (sel.ORDER && String(p.ORDER) !== sel.ORDER) continue;
       if (sel.ZONE_IDS && String(p.ZONE_IDS) !== sel.ZONE_IDS) continue;
     }
-
-    // DISTRIBUTION exists in both (if provided)
     if (sel.DISTRIBUTION && String(p.DISTRIBUTION) !== sel.DISTRIBUTION) continue;
-
-    // checkboxes (truthy)
     if (sel.ENDEMIC && !isTruthy(p.ENDEMIC)) continue;
     if (sel.RELICT && !isTruthy(p.RELICT)) continue;
-
-    // EXTINCT only for Plants/Fungi
     if (state.activePts === 'plants' && sel.EXTINCT && !isTruthy(p.EXTINCT)) continue;
 
     filtered.push(f);
@@ -331,65 +356,95 @@ function applyFiltersAndRender() {
   renderListAndMarkers(filtered);
 }
 
-/* normalize string for case/diacritic-insensitive search */
-function normalize(v) {
-  if (v == null) return '';
-  try {
-    return String(v).toLowerCase().normalize('NFD').replace(/\p{Diacritic}/gu,'');
-  } catch(e) {
-    return String(v).toLowerCase();
-  }
-}
-
-/* Render list and markers */
+/* Render list (unique species) and all markers; click list -> highlight group */
 function renderListAndMarkers(features) {
-  // Count
-  el.count.textContent = features.length ? `Намерени: ${features.length}` : 'Няма съвпадения.';
+  const totalPoints = features.length;
 
-  // Clear UI
   el.list.innerHTML = '';
   state.pointMarkerLayer.clearLayers();
+  state.currentMarkers = [];
+  state.currentMarkersByKey = new Map();
 
-  // Markers
-  const markerById = new Map();
+  if (!features.length) {
+    el.count.textContent = 'Няма съвпадения.';
+    return;
+  }
 
+  const bounds = [];
   for (const f of features) {
-    const id = ++state.idCounter;
-    const [lng,lat] = f.geometry.coordinates;
+    const [lng, lat] = f.geometry.coordinates;
     const p = f.properties || {};
-    const marker = L.marker([lat,lng], {
+    const key = speciesKey(p);
+
+    const marker = L.marker([lat, lng], {
       icon: L.divIcon({ className: 'pt-marker', iconSize: [10,10] }),
       title: (p.BG_NAME || p.LATIN_NAME || 'Point')
     }).addTo(state.pointMarkerLayer);
 
-    marker.on('click', () => openPopupAt([lat,lng], p));
-    markerById.set(id, marker);
+    marker.on('click', () => openPopupAt([lat, lng], p));
+    marker._speciesKey = key;
 
-    // List item
+    state.currentMarkers.push(marker);
+    if (!state.currentMarkersByKey.has(key)) state.currentMarkersByKey.set(key, []);
+    state.currentMarkersByKey.get(key).push(marker);
+
+    bounds.push([lat, lng]);
+  }
+
+  const uniqueList = [];
+  for (const [key, markers] of state.currentMarkersByKey.entries()) {
+    const any = markers[0];
+    const rep = features.find(ft => speciesKey(ft.properties) === key) || {};
+    uniqueList.push({ key, count: markers.length, props: rep.properties || {} });
+  }
+
+  uniqueList.sort((a,b)=>{
+    const an = (a.props.BG_NAME || a.props.LATIN_NAME || '').toLowerCase();
+    const bn = (b.props.BG_NAME || b.props.LATIN_NAME || '').toLowerCase();
+    return an.localeCompare(bn,'bg',{sensitivity:'base'});
+  });
+
+  for (const item of uniqueList) {
+    const p = item.props;
     const div = document.createElement('div');
     div.className = 'feature-item';
-    div.setAttribute('role', 'listitem');
     const main = `${p.BG_NAME || ''} ${p.LATIN_NAME ? `(${p.LATIN_NAME})` : ''}`;
-    const extra = [];
-    if (p.STATUS) extra.push(`STATUS: ${p.STATUS}`);
-    if (state.activePts==='animals' && p.TYPE) extra.push(`TYPE: ${p.TYPE}`);
-    if (p.FAMILY) extra.push(`FAMILY: ${p.FAMILY}`);
-    div.innerHTML = `<div>${escapeHTML(main)} ${p.ENDEMIC&&isTruthy(p.ENDEMIC)?'<span class="badge">ENDEMIC</span>':''} ${p.RELICT&&isTruthy(p.RELICT)?'<span class="badge">RELICT</span>':''} ${state.activePts==='plants' && isTruthy(p.EXTINCT)?'<span class="badge">EXTINCT</span>':''}</div>
-                     <div class="muted" style="font-size:12px">${escapeHTML(extra.join(' · '))}</div>`;
-    div.onmouseenter = () => marker._icon?.classList.add('highlight');
-    div.onmouseleave = () => marker._icon?.classList.remove('highlight');
+    const badges = [
+      p.ENDEMIC && isTruthy(p.ENDEMIC) ? '<span class="badge">ENDEMIC</span>' : '',
+      p.RELICT  && isTruthy(p.RELICT)  ? '<span class="badge">RELICT</span>'  : '',
+      (state.activePts==='plants' && isTruthy(p.EXTINCT)) ? '<span class="badge">EXTINCT</span>' : ''
+    ].join(' ');
+    div.innerHTML = `
+      <div>${escapeHTML(main)} ${badges}</div>
+      <div class="muted" style="font-size:12px">
+        ${escapeHTML([p.STATUS, p.TYPE, p.FAMILY].filter(Boolean).join(' · '))}
+        <span class="badge" title="Брой точки за този вид">${item.count}</span>
+      </div>
+    `;
+
     div.onclick = () => {
-      openPopupAt([lat,lng], p);
-      map.setView([lat,lng], Math.max(map.getZoom(), 10), {animate:true});
+      state.selectedSpeciesKey = item.key;
+      for (const m of state.currentMarkers) m._icon?.classList.remove('highlight');
+      const group = state.currentMarkersByKey.get(item.key) || [];
+      const gb = [];
+      for (const m of group) {
+        m._icon?.classList.add('highlight');
+        gb.push(m.getLatLng());
+      }
+      if (gb.length) {
+        const b = L.latLngBounds(gb);
+        map.fitBounds(b.pad(0.25));
+      }
     };
+
     el.list.appendChild(div);
   }
 
-  // Fit to selection (optional)
-  if (features.length) {
+  el.count.textContent = `Намерени видове: ${uniqueList.length} (точки: ${totalPoints})`;
+
+  if (bounds.length) {
     try {
-      const bounds = L.latLngBounds(features.map(f => [f.geometry.coordinates[1], f.geometry.coordinates[0]]));
-      map.fitBounds(bounds.pad(0.2));
+      map.fitBounds(L.latLngBounds(bounds).pad(0.2));
     } catch(e){}
   }
 }
@@ -403,7 +458,6 @@ function openPopupAt(latlng, props) {
   for (const k of keysOrder) {
     if (props[k] !== undefined) rows.push(`<tr><th style="text-align:left; padding-right:8px">${escapeHTML(k)}</th><td>${escapeHTML(props[k])}</td></tr>`);
   }
-  // plus any other keys
   for (const k of Object.keys(props)) {
     if (!keysOrder.includes(k)) rows.push(`<tr><th style="text-align:left; padding-right:8px">${escapeHTML(k)}</th><td>${escapeHTML(props[k])}</td></tr>`);
   }
@@ -413,10 +467,8 @@ function openPopupAt(latlng, props) {
 
 /* ---------- Controls / Events ---------- */
 function wireControls() {
-  // radio: polygon layer
   document.querySelectorAll('input[name="poly"]').forEach(r => {
     r.addEventListener('change', () => {
-      // switch layers: exactly one visible
       map.removeLayer(layers.poly[state.activePoly]);
       state.activePoly = r.value;
       map.addLayer(layers.poly[state.activePoly]);
@@ -425,12 +477,10 @@ function wireControls() {
     });
   });
 
-  // radio: point layer
   document.querySelectorAll('input[name="points"]').forEach(r => {
     r.addEventListener('change', () => {
       state.activePts = r.value;
       refreshFilterVisibility();
-      // If a polygon is selected, re-run selection pipeline to rebuild filters from that set
       if (state.selectedPolygonFeature) {
         onPolygonClick(state.selectedPolygonFeature, state.selectedPolygonLayer);
       } else {
@@ -439,20 +489,17 @@ function wireControls() {
     });
   });
 
-  // text search with debounce
   let t;
   el.search.addEventListener('input', () => {
     clearTimeout(t);
     t = setTimeout(applyFiltersAndRender, 300);
   });
 
-  // dropdowns & checkboxes
   [el.ddSTATUS, el.ddFAMILY, el.ddTYPE, el.ddORDER, el.ddDISTRIBUTION, el.ddZONE_IDS,
    el.cbENDEMIC, el.cbRELICT, el.cbEXTINCT].forEach(ctrl => {
     ctrl.addEventListener('change', applyFiltersAndRender);
   });
 
-  // clear filters
   el.btnClearFilters.addEventListener('click', () => {
     el.search.value = '';
     [el.ddSTATUS, el.ddFAMILY, el.ddTYPE, el.ddORDER, el.ddDISTRIBUTION, el.ddZONE_IDS].forEach(sel => sel.value = '');
@@ -462,7 +509,6 @@ function wireControls() {
     applyFiltersAndRender();
   });
 
-  // clear polygon selection
   el.btnClearSel.addEventListener('click', clearSelection);
 }
 
@@ -473,16 +519,15 @@ function clearSelection() {
   state.explodedPoints = [];
   state.filteredPoints = [];
   state.pointMarkerLayer.clearLayers();
+  state.selectedSpeciesKey = null;
+  for (const m of state.currentMarkers) m._icon?.classList.remove('highlight');
   el.list.innerHTML = '';
   el.count.textContent = 'Изберете полигон.';
 }
 
 function refreshFilterVisibility() {
   const isAnimals = state.activePts === 'animals';
-  // TYPE & ORDER only for Animals
   el.rowTypeOrder.classList.toggle('hidden', !isAnimals);
-  // ZONE_IDS only meaningful for Animals (handled in populate)
-  // EXTINCT only for Plants/Fungi
   el.extinctLine.classList.toggle('hidden', isAnimals);
 }
 
