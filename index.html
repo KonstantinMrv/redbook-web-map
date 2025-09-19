@@ -114,7 +114,6 @@
       padding:2px 6px; border-radius:8px; border:1px solid #ccc;
       font-size:12px; color:#333; box-shadow:0 1px 3px rgba(0,0,0,.15);
     }
-
     .leaflet-interactive.hovered{ stroke-width:3px !important; filter:brightness(1.2); }
 
     /* ---------- Ред в списъка: Текст | Бадж-рейл | Бутон ---------- */
@@ -195,6 +194,9 @@
         <strong>Основа</strong>
         <label><input type="radio" name="poly" value="morph" checked> Геоморфоложки структури</label>
         <label><input type="radio" name="poly" value="land"> Ландшафтно райониране</label>
+        <label><input type="radio" name="poly" value="n2k_birds"> Natura 2000 — Зони за птици</label>
+        <label><input type="radio" name="poly" value="n2k_habitats"> Natura 2000 — Зони по местообитания</label>
+        <label><input type="radio" name="poly" value="protected_area"> Защитени територии</label>
       </section>
       <section>
         <strong>Книги</strong>
@@ -230,11 +232,48 @@
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/@turf/turf@6/turf.min.js"></script>
   <script>
-    /* ---------- CONFIG: file paths ---------- */
-    const MORPH_GEOJSON_URL = 'data/morph_units.geojson';
-    const LANDSCAPE_GEOJSON_URL = 'data/landscape_zoning.geojson';
+    /* ---------- CONFIG: file paths (points) ---------- */
     const ANIMALS_GEOJSON_URL = 'data/Animals.geojson';
     const PLANTS_FUNGI_GEOJSON_URL = 'data/PlantsFungi.geojson';
+
+    /* ---------- POLYGON LAYERS CONFIG (lazy-loaded) ---------- */
+    const POLY_DEFS = {
+      morph: {
+        url: 'data/morph_units.geojson',
+        label: 'Геоморфоложки структури',
+        baseStyle: { color:'#B08D57', weight:1,   fillColor:'#F3E5AB', fillOpacity:.65 },
+        selStyle:  { color:'#B08D57', weight:4,   fillColor:'#FFF4C9', fillOpacity:.8 },
+        layer: null, loaded: false
+      },
+      land: {
+        url: 'data/landscape_zoning.geojson',
+        label: 'Ландшафтно райониране',
+        baseStyle: { color:'#5A8F68', weight:1,   fillColor:'#CDE8B8', fillOpacity:.65 },
+        selStyle:  { color:'#5A8F68', weight:4,   fillColor:'#E9F6D8', fillOpacity:.8 },
+        layer: null, loaded: false
+      },
+      n2k_birds: {
+        url: 'data/N2000_Birds.geojson',
+        label: 'Natura 2000 — Зони за птици',
+        baseStyle: { color:'#1E88E5', weight:1.2, fillColor:'#BBDEFB', fillOpacity:.35 },
+        selStyle:  { color:'#1565C0', weight:3,   fillColor:'#E3F2FD', fillOpacity:.55 },
+        layer: null, loaded: false
+      },
+      n2k_habitats: {
+        url: 'data/N2000_habitatss.geojson',
+        label: 'Natura 2000 — Зони по местообитания',
+        baseStyle: { color:'#43A047', weight:1.2, fillColor:'#C8E6C9', fillOpacity:.35 },
+        selStyle:  { color:'#2E7D32', weight:3,   fillColor:'#E8F5E9', fillOpacity:.55 },
+        layer: null, loaded: false
+      },
+      protected_area: {
+        url: 'data/protected_area.geojson',
+        label: 'Защитени територии',
+        baseStyle: { color:'#8E24AA', weight:1.2, fillColor:'#E1BEE7', fillOpacity:.35 },
+        selStyle:  { color:'#6A1B9A', weight:3,   fillColor:'#F3E5F5', fillOpacity:.55 },
+        layer: null, loaded: false
+      }
+    };
 
     /* ---------- MAP ---------- */
     const map = L.map('map', { zoomControl: true }).setView([42.75, 25.3], 7);
@@ -242,7 +281,7 @@
 
     /* ---------- STATE ---------- */
     const state = {
-      activePoly: 'morph',   // 'morph' | 'land'
+      activePoly: 'morph',   // 'morph' | 'land' | 'n2k_birds' | 'n2k_habitats' | 'protected_area'
       activePts:  'animals', // 'animals' | 'plants'
       selectedPolygonFeature: null,
       selectedPolygonLayer: null,
@@ -270,70 +309,56 @@
       count: document.getElementById('count')
     };
 
-    /* ---------- Layers ---------- */
-    const layers = { poly: {}, data: {} };
+    /* ---------- POINTS DATA (load once) ---------- */
+    const layers = { data: {} };
 
-    const BASE_STYLES = {
-      morph: { color: '#B08D57', weight: 1, fillColor: '#F3E5AB', fillOpacity: 0.65 },
-      land:  { color: '#5A8F68', weight: 1, fillColor: '#CDE8B8', fillOpacity: 0.65 }
-    };
-    const SELECTED_STYLES = {
-      morph: { color: '#B08D57', weight: 4, fillColor: '#FFF4C9', fillOpacity: 0.8 },
-      land:  { color: '#5A8F68', weight: 4, fillColor: '#E9F6D8', fillOpacity: 0.8 }
-    };
-
-    function getPolyLabel(props = {}) { return props.NAME || ''; }
-
-    /* Load data and build layers */
     Promise.all([
-      fetch(MORPH_GEOJSON_URL).then(r => r.json()),
-      fetch(LANDSCAPE_GEOJSON_URL).then(r => r.json()),
       fetch(ANIMALS_GEOJSON_URL).then(r => r.json()),
       fetch(PLANTS_FUNGI_GEOJSON_URL).then(r => r.json())
-    ]).then(([morph, land, animals, plants]) => {
-      layers.poly.morph = L.geoJSON(morph, {
-        style: BASE_STYLES.morph,
-        onEachFeature: (f, l) => {
-          l.on({
-            mouseover: e => { if (e?.target?._path) e.target._path.classList.add('hovered'); },
-            mouseout:  e => { if (e?.target?._path) e.target._path.classList.remove('hovered'); },
-            click:     () => onPolygonClick(f, l)
-          });
-          const lbl = getPolyLabel(f.properties);
-          if (lbl) l.bindTooltip(lbl, { permanent: true, direction: 'center', className: 'poly-label' });
-        }
-      }).addTo(map);
-
-      layers.poly.land = L.geoJSON(land, {
-        style: BASE_STYLES.land,
-        onEachFeature: (f, l) => {
-          l.on({
-            mouseover: e => { if (e?.target?._path) e.target._path.classList.add('hovered'); },
-            mouseout:  e => { if (e?.target?._path) e.target._path.classList.remove('hovered'); },
-            click:     () => onPolygonClick(f, l)
-          });
-          const lbl = getPolyLabel(f.properties);
-          if (lbl) l.bindTooltip(lbl, { permanent: true, direction: 'center', className: 'poly-label' });
-        }
-      });
-
+    ]).then(([animals, plants]) => {
       layers.data.animals = animals;
       layers.data.plants  = plants;
 
-      setGlobalExplodedFromActive();
-      populateFilterDropdowns(state.explodedPoints);
-
-      /* Начален fit по morph с асиметричен десен padding */
-      fitToMorphBG();
-
-      wireControls();
-      refreshFilterVisibility();
+      // зареди и добави началния полигонов слой (morph), после fit
+      ensurePolyLayer(state.activePoly).then(layer => {
+        layer.addTo(map);
+        setGlobalExplodedFromActive();
+        populateFilterDropdowns(state.explodedPoints);
+        fitToActivePolyForBG();
+        wireControls();
+        refreshFilterVisibility();
+      });
     });
 
-    /* ---- Лек авто-зуум само по морфоложкия слой + асиметричен десен padding ---- */
-    function fitToMorphBG() {
+    /* ---------- Lazy loader за полигоновите слоеве ---------- */
+    async function ensurePolyLayer(key){
+      const def = POLY_DEFS[key];
+      if (!def) return null;
+      if (def.loaded && def.layer) return def.layer;
+
+      const gj = await fetch(def.url).then(r=>r.json());
+      def.layer = L.geoJSON(gj, {
+        style: def.baseStyle,
+        onEachFeature: (f, l) => {
+          l.on({
+            mouseover: e => { if (e?.target?._path) e.target._path.classList.add('hovered'); },
+            mouseout:  e => { if (e?.target?._path) e.target._path.classList.remove('hovered'); },
+            click:     () => onPolygonClick(f, l)
+          });
+          const nm = (f.properties && (f.properties.NAME || f.properties.Name || f.properties.name)) || '';
+          if (nm) l.bindTooltip(nm, { permanent:true, direction:'center', className:'poly-label' });
+        }
+      });
+      def.loaded = true;
+      return def.layer;
+    }
+
+    /* ---- Лек авто-зуум по активния полигонов слой + асиметричен десен padding ---- */
+    function fitToActivePolyForBG() {
       try {
-        const bounds = layers.poly.morph?.getBounds();
+        const def = POLY_DEFS[state.activePoly];
+        if (!def?.layer) return;
+        const bounds = def.layer.getBounds();
         if (!bounds || !bounds.isValid()) return;
         map.invalidateSize();
 
@@ -351,11 +376,12 @@
       } catch (e) { console.warn('Неуспешно начално побиране:', e); }
     }
 
+    // преизчислявай fit след resize
     (function () {
       let t;
       window.addEventListener('resize', () => {
         clearTimeout(t);
-        t = setTimeout(() => fitToMorphBG(), 200);
+        t = setTimeout(() => fitToActivePolyForBG(), 200);
       });
     })();
 
@@ -381,15 +407,15 @@
     }
 
     function onPolygonClick(feature, layer) {
-      state.activePts = document.querySelector('input[name="points"]:checked').value;
-
+      // върни стил на предишния селектиран
       if (state.selectedPolygonLayer) {
-        try { state.selectedPolygonLayer.setStyle(BASE_STYLES[state.activePoly]); } catch(e){}
+        try { state.selectedPolygonLayer.setStyle(POLY_DEFS[state.activePoly].baseStyle); } catch(e){}
       }
       state.selectedPolygonLayer = layer;
       state.selectedPolygonFeature = feature;
-      layer.setStyle(SELECTED_STYLES[state.activePoly]);
+      layer.setStyle(POLY_DEFS[state.activePoly].selStyle);
 
+      // филтрирай точки вътре
       const exploded = explodeMultiPoints(layers.data[state.activePts]);
       const inside = [];
       for (const pt of exploded) if (turf.booleanPointInPolygon(pt, feature)) inside.push(pt);
@@ -460,7 +486,7 @@
       try { new URL(href); return href; } catch { return null; }
     }
 
-    /* ---------- Статус мапване + tooltip ---------- */
+    /* ---------- Статус мапване ---------- */
     const STATUS_TITLES = {
       lc:'LC — Незастрашен',
       nt:'NT — Почти застрашен',
@@ -540,7 +566,10 @@
         if (search && !(nameBG.includes(search) || nameLA.includes(search))) continue;
 
         if (sel.STATUS && String(p.STATUS) !== sel.STATUS) continue;
-        if (sel.FAMILY && String(p.FAMILY) !== sel.FAMILY) continue;
+        // FAMILY за растения, TYPE за животни (както и в рендера)
+        if (state.activePts !== 'animals') {
+          if (sel.FAMILY && String(p.FAMILY) !== sel.FAMILY) continue;
+        }
         if (state.activePts === 'animals') {
           if (sel.TYPE  && String(p.TYPE)  !== sel.TYPE)  continue;
           if (sel.ORDER && String(p.ORDER) !== sel.ORDER) continue;
@@ -632,7 +661,7 @@
         const meta = document.createElement('div');
         meta.className = 'feature-meta';
 
-        // Статус-чип с tooltip – първи в реда
+        // Статус-чип – първи
         const code = statusToCode(p.STATUS);
         if (code){
           const st = document.createElement('span');
@@ -644,7 +673,6 @@
           meta.appendChild(st);
         }
 
-        // показваме FAMILY само за растения/гъби; TYPE само за животни
         const isAnimals = state.activePts === 'animals';
         if (!isAnimals && p.FAMILY){
           const fam = document.createElement('span');
@@ -765,27 +793,50 @@
 
     /* ---------- Controls / Events ---------- */
     function wireControls() {
+      // смяна на полигонов слой (само един активен)
       document.querySelectorAll('input[name="poly"]').forEach(r => {
-        r.addEventListener('change', () => {
-          map.removeLayer(layers.poly[state.activePoly]);
-          if (state.selectedPolygonLayer) {
-            try { state.selectedPolygonLayer.setStyle(BASE_STYLES[state.activePoly]); } catch(e){}
-          }
-          state.activePoly = r.value;
-          map.addLayer(layers.poly[state.activePoly]);
+        r.addEventListener('change', async () => {
+          const prev = state.activePoly;
+          const next = r.value;
 
-          // Нулирай селекцията по вид
+          // махни стария активен слой от картата
+          const prevDef = POLY_DEFS[prev];
+          if (prevDef?.layer && map.hasLayer(prevDef.layer)) {
+            map.removeLayer(prevDef.layer);
+          }
+
+          // върни стил на предходния селектиран полигон и нулирай селекцията
+          if (state.selectedPolygonLayer) {
+            try { state.selectedPolygonLayer.setStyle(POLY_DEFS[prev].baseStyle); } catch(e){}
+          }
+          state.selectedPolygonLayer = null;
+          state.selectedPolygonFeature = null;
+
+          // добави новия слой (lazy-load)
+          state.activePoly = next;
+          const lay = await ensurePolyLayer(next);
+          lay.addTo(map);
+
+          // глобален режим на точки
           state.selectedSpeciesKey = null;
-          clearSelection();
+          setGlobalExplodedFromActive();
+          populateFilterDropdowns(state.explodedPoints);
+          state.filteredPoints = [];
+          state.pointMarkerLayer.clearLayers();
+          el.list.innerHTML = '';
+          el.count.textContent = 'Въведете търсене или изберете филтър.';
         });
       });
 
+      // смяна на точков слой
       document.querySelectorAll('input[name="points"]').forEach(r => {
         r.addEventListener('change', () => {
           state.activePts = r.value;
           state.selectedSpeciesKey = null; // нулирай при смяна на книга
           refreshFilterVisibility();
+
           if (state.selectedPolygonFeature) {
+            // преизчисли точките вътре в селектирания полигон
             onPolygonClick(state.selectedPolygonFeature, state.selectedPolygonLayer);
           } else {
             setGlobalExplodedFromActive();
@@ -795,17 +846,20 @@
         });
       });
 
+      // търсене (debounce)
       let t;
       el.search.addEventListener('input', () => {
         clearTimeout(t);
         t = setTimeout(() => { state.selectedSpeciesKey = null; applyFiltersAndRender(); }, 300);
       });
 
+      // филтри
       [el.ddSTATUS, el.ddFAMILY, el.ddTYPE, el.ddORDER, el.cbENDEMIC, el.cbRELICT]
         .forEach(ctrl => {
           ctrl.addEventListener('change', () => { state.selectedSpeciesKey = null; applyFiltersAndRender(); });
         });
 
+      // бутони
       el.btnClearFilters.addEventListener('click', () => {
         el.search.value = '';
         [el.ddSTATUS, el.ddFAMILY, el.ddTYPE, el.ddORDER].forEach(sel => sel.value = '');
@@ -818,22 +872,24 @@
       el.btnClearSel.addEventListener('click', () => {
         state.selectedSpeciesKey = null;
         clearSelection();
-
         if (state.selectedPolygonLayer) {
-          map.fitBounds(state.selectedPolygonLayer.getBounds(), { padding: [30,30], maxZoom: 8 });
+          const def = POLY_DEFS[state.activePoly];
+          map.fitBounds(def.layer.getBounds(), { padding: [30,30], maxZoom: 8 });
         } else {
-          fitToMorphBG();
+          fitToActivePolyForBG();
         }
       });
     }
 
     function clearSelection() {
+      // върни стил на селектиран полигон, ако има
       if (state.selectedPolygonLayer) {
-        try { state.selectedPolygonLayer.setStyle(BASE_STYLES[state.activePoly]); } catch(e){}
+        try { state.selectedPolygonLayer.setStyle(POLY_DEFS[state.activePoly].baseStyle); } catch(e){}
       }
       state.selectedPolygonLayer = null;
       state.selectedPolygonFeature = null;
 
+      // глобален набор за активния точков слой
       setGlobalExplodedFromActive();
       populateFilterDropdowns(state.explodedPoints);
 
