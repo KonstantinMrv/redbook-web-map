@@ -239,13 +239,13 @@
       // първоначално: глобален набор за активния точков слой (за глобално търсене)
       setGlobalExplodedFromActive();
       populateFilterDropdowns(state.explodedPoints);
-      
-      // ЛЕК начален зууум към цялата територия (границите на двата полигонови слоя)
+
+      // ЛЕК начален зууум към територията на двата полигонови слоя
       try {
         const allBounds = layers.poly.morph.getBounds().extend(layers.poly.land.getBounds());
-        map.fitBounds(allBounds, { padding: [20, 20], maxZoom: 8 }); // леко приближение
+        map.fitBounds(allBounds, { padding: [20, 20], maxZoom: 8 });
       } catch (e) {}
-      
+
       wireControls();
       refreshFilterVisibility();
     });
@@ -393,12 +393,12 @@
       for (const f of base) {
         const p = f.properties || {};
         const nameBG = normalize(p.BG_NAME);
-        const nameLA = normalize(p.LATIN_NAME);
+        theNameLA = normalize(p.LATIN_NAME);
 
         const anyFilterOn = search || sel.STATUS || sel.FAMILY || sel.TYPE || sel.ORDER || sel.DISTRIBUTION || sel.ENDEMIC || sel.RELICT || (state.activePts==='plants' && sel.EXTINCT);
         if (!state.selectedPolygonFeature && !anyFilterOn) continue;
 
-        if (search && !(nameBG.includes(search) || nameLA.includes(search))) continue;
+        if (search && !(nameBG.includes(search) || theNameLA.includes(search))) continue;
 
         if (sel.STATUS        && String(p.STATUS)        !== sel.STATUS)        continue;
         if (sel.FAMILY        && String(p.FAMILY)        !== sel.FAMILY)        continue;
@@ -519,17 +519,16 @@
         div.appendChild(topRow);
         div.appendChild(meta);
 
-        /* Клик по елемента → само подсвет (без зууум/пан) */
-        /* Клик по елемента → подсвет и леко приближаване */
+        /* Клик по елемента → подсвет и ЛЕК зууум */
         div.onclick = () => {
           state.selectedSpeciesKey = item.key;
-        
-          // премахни старите подсвети
+
+          // подсвет на групата
           for (const m of state.currentMarkers) { m._icon?.classList.remove('highlight'); }
           const group = state.currentMarkersByKey.get(item.key) || [];
           const gb = [];
           for (const m of group) { m._icon?.classList.add('highlight'); gb.push(m.getLatLng()); }
-        
+
           // ЛЕКО приближаване САМО при избор на вид
           if (gb.length === 1) {
             const target = gb[0];
@@ -541,6 +540,11 @@
           }
         };
 
+        el.list.appendChild(div);
+      }
+
+      el.count.textContent = `Намерени видове: ${uniqueList.length} (точки: ${totalPoints})`;
+      /* Няма авто-зууум тук */
     }
 
     /* Popup table */
@@ -593,7 +597,7 @@
           state.activePoly = r.value;
           map.addLayer(layers.poly[state.activePoly]);
           clearSelection(); // към глобален режим (без селектиран полигон)
-          // НИКАКЪВ зууум тук
+          // без зууум тук
         });
       });
 
@@ -673,4 +677,3 @@
   </script>
 </body>
 </html>
-
