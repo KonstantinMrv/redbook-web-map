@@ -80,7 +80,7 @@
       <label><input type="radio" name="points" value="plants"> PlantsFungi</label>
     </section>
     <section>
-      <input id="searchBox" type="text" placeholder="Потърси вид по име" aria-label="Search">
+      <input id="searchBox" type="text" placeholder="Търси в BG_NAME / LATIN_NAME…" aria-label="Search">
       <div class="row" style="margin-top:8px">
         <select id="ddSTATUS"><option value="">Природозащитен статус (всички)</option></select>
         <select id="ddFAMILY"><option value="">Семейство (всички)</option></select>
@@ -103,10 +103,10 @@
         <button id="btnClearFilters" title="Изчисти всички филтри">Изчисти филтрите</button>
         <button id="btnClearSel" title="Изчисти селекцията на полигон">Изчисти селекцията</button>
       </div>
-      <div class="legend muted">Съвет: изберете полигон от активния полигонов слой.</div>
+      <div class="legend muted">Съвет: напишете търсене или изберете полигон/филтри.</div>
     </section>
   </div>
-  <div id="count" class="muted">Изберете полигон.</div>
+  <div id="count" class="muted">Въведете търсене или изберете полигон.</div>
   <div id="list" role="list" aria-label="Result list"></div>
 </div>
 
@@ -130,7 +130,7 @@ const state = {
   activePts:  'animals', // 'animals' | 'plants'
   selectedPolygonFeature: null,
   selectedPolygonLayer: null,
-  explodedPoints: [],        // вътрешният набор (само точки вътре в полигона)
+  explodedPoints: [],        // текущият базов набор за филтриране (в полигона или глобално)
   filteredPoints: [],
   pointMarkerLayer: L.layerGroup().addTo(map),
   idCounter: 0,
@@ -200,13 +200,22 @@ Promise.all([
   layers.data.animals = animals;
   layers.data.plants = plants;
 
+  // първоначално: глобален набор за активния точков слой (за глобално търсене)
+  setGlobalExplodedFromActive();
+  populateFilterDropdowns(state.explodedPoints);
+
   try { map.fitBounds(layers.poly.morph.getBounds(), { padding: [20,20] }); } catch(e){}
 
   wireControls();
   refreshFilterVisibility();
 });
 
-/* ---------- Polygon selection ---------- */
+/* ---------- Helpers ---------- */
+function setGlobalExplodedFromActive() {
+  const fc = layers.data[state.activePts];
+  state.explodedPoints = explodeMultiPoints(fc);
+}
+
 function onPolygonClick(feature, layer) {
   state.activePts = document.querySelector('input[name="points"]:checked').value;
 
@@ -220,8 +229,7 @@ function onPolygonClick(feature, layer) {
   try { map.fitBounds(layer.getBounds(), { padding: [20,20] }); } catch(e){}
 
   // Explode -> only inside
-  const ptsFC = layers.data[state.activePts];
-  const exploded = explodeMultiPoints(ptsFC);
+  const exploded = explodeMultiPoints(layers.data[state.activePts]);
   const inside = [];
   for (const pt of exploded) {
     if (turf.booleanPointInPolygon(pt, feature)) inside.push(pt);
@@ -306,14 +314,15 @@ function speciesKey(props = {}) {
   return `${la}||${bg}`;
 }
 
-/* Apply filters and render unique list + highlight groups */
+/* Apply filters and render unique list + highlight groups
+   - Работи и без полигон (глобално търсене/филтри по активния точков слой) */
 function applyFiltersAndRender() {
-  if (!state.selectedPolygonFeature) {
-    el.count.textContent = 'Изберете полигон.';
-    el.list.innerHTML = '';
-    state.pointMarkerLayer.clearLayers();
-    return;
+  // ако няма избран полигон, базовият набор е глобалният за активния точков слой
+  if (!state.selectedPolygonFeature && (!state.explodedPoints || !state.explodedPoints.length)) {
+    setGlobalExplodedFromActive();
+    populateFilterDropdowns(state.explodedPoints);
   }
+
   const search = normalize(el.search.value);
   const sel = {
     STATUS: el.ddSTATUS.value,
@@ -326,12 +335,17 @@ function applyFiltersAndRender() {
     EXTINCT: el.cbEXTINCT.checked
   };
 
-  const arr = state.explodedPoints || [];
+  const base = state.explodedPoints || [];
   const filtered = [];
-  for (const f of arr) {
+  for (const f of base) {
     const p = f.properties || {};
     const nameBG = normalize(p.BG_NAME);
     const nameLA = normalize(p.LATIN_NAME);
+
+    // ако няма полигон и няма никакъв филтър/търсене — не показваме нищо (само съвет)
+    const anyFilterOn = search || sel.STATUS || sel.FAMILY || sel.TYPE || sel.ORDER || sel.DISTRIBUTION || sel.ENDEMIC || sel.RELICT || (state.activePts==='plants' && sel.EXTINCT);
+    if (!state.selectedPolygonFeature && !anyFilterOn) continue;
+
     if (search && !(nameBG.includes(search) || nameLA.includes(search))) continue;
 
     if (sel.STATUS        && String(p.STATUS)        !== sel.STATUS)        continue;
@@ -350,6 +364,15 @@ function applyFiltersAndRender() {
   }
 
   state.filteredPoints = filtered;
+
+  // UI съобщение, ако сме глобално и няма активни филтри/търсене
+  if (!state.selectedPolygonFeature && !(search || sel.STATUS || sel.FAMILY || sel.TYPE || sel.ORDER || sel.DISTRIBUTION || sel.ENDEMIC || sel.RELICT || (state.activePts==='plants' && sel.EXTINCT))) {
+    el.count.textContent = 'Въведете търсене или изберете филтър.';
+    el.list.innerHTML = '';
+    state.pointMarkerLayer.clearLayers();
+    return;
+  }
+
   renderListAndMarkers(filtered);
 }
 
@@ -385,6 +408,7 @@ function renderListAndMarkers(features) {
     if (!state.currentMarkersByKey.has(key)) state.currentMarkersByKey.set(key, []);
     state.currentMarkersByKey.get(key).push(marker);
 
+    bounds.push([lat, lat] ? [lat, lng] : [lat, lng]); // safeguard
     bounds.push([lat, lng]);
   }
 
@@ -414,7 +438,7 @@ function renderListAndMarkers(features) {
       <div>${escapeHTML(main)} ${badges}</div>
       <div class="muted" style="font-size:12px">
         ${escapeHTML([p.STATUS, p.TYPE, p.FAMILY].filter(Boolean).join(' · '))}
-        <span class="badge" title="Брой нахождения за този вид">${item.count}</span>
+        <span class="badge" title="Брой точки за този вид">${item.count}</span>
       </div>
     `;
 
@@ -436,7 +460,7 @@ function renderListAndMarkers(features) {
         const targetZoom = Math.max(10, Math.min(11, map.getZoom()));
         map.setView(target, targetZoom, { animate: true });
       } else if (gb.length > 1) {
-        // Няколко точки → fitBounds с ограничение maxZoom, за да не приближава прекалено
+        // Няколко точки → fitBounds с ограничение maxZoom
         const b = L.latLngBounds(gb);
         map.fitBounds(b.pad(0.25), { maxZoom: 12 });
       }
@@ -445,10 +469,14 @@ function renderListAndMarkers(features) {
     el.list.appendChild(div);
   }
 
-  el.count.textContent = `Намерени видове: ${uniqueList.length} (Брой нахождения: ${totalPoints})`;
+  el.count.textContent = `Намерени видове: ${uniqueList.length} (точки: ${totalPoints})`;
 
-  if (bounds.length) {
-    try { map.fitBounds(L.latLngBounds(bounds).pad(0.2)); } catch(e){}
+  // Ако показваме глобален резултат и няма полигон — пак зумираме към резултатите, но умерено
+  if (features.length) {
+    try {
+      const b = L.latLngBounds(features.map(f => [f.geometry.coordinates[1], f.geometry.coordinates[0]]));
+      map.fitBounds(b.pad(0.2), { maxZoom: state.selectedPolygonFeature ? undefined : 11 });
+    } catch(e){}
   }
 }
 
@@ -475,7 +503,7 @@ function wireControls() {
       map.removeLayer(layers.poly[state.activePoly]);
       state.activePoly = r.value;
       map.addLayer(layers.poly[state.activePoly]);
-      clearSelection();
+      clearSelection(); // ще минем към глобален режим
       try { map.fitBounds(layers.poly[state.activePoly].getBounds(), { padding: [20,20] }); } catch(e){}
     });
   });
@@ -487,7 +515,10 @@ function wireControls() {
       if (state.selectedPolygonFeature) {
         onPolygonClick(state.selectedPolygonFeature, state.selectedPolygonLayer);
       } else {
-        clearSelection();
+        // глобален режим: обнови базовия набор и филтрите
+        setGlobalExplodedFromActive();
+        populateFilterDropdowns(state.explodedPoints);
+        applyFiltersAndRender();
       }
     });
   });
@@ -519,13 +550,17 @@ function clearSelection() {
   if (state.selectedPolygonLayer) try { state.selectedPolygonLayer.setStyle({weight:1}); } catch(e){}
   state.selectedPolygonLayer = null;
   state.selectedPolygonFeature = null;
-  state.explodedPoints = [];
+
+  // преминаваме към глобален набор за активния точков слой
+  setGlobalExplodedFromActive();
+  populateFilterDropdowns(state.explodedPoints);
+
   state.filteredPoints = [];
   state.pointMarkerLayer.clearLayers();
   state.selectedSpeciesKey = null;
   for (const m of state.currentMarkers) m._icon?.classList.remove('highlight');
   el.list.innerHTML = '';
-  el.count.textContent = 'Изберете полигон.';
+  el.count.textContent = 'Въведете търсене или изберете филтър.';
 }
 
 function refreshFilterVisibility() {
@@ -547,4 +582,3 @@ function escapeHTML(v) {
 </script>
 </body>
 </html>
-
