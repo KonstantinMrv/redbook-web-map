@@ -80,7 +80,7 @@
       <label><input type="radio" name="points" value="plants"> PlantsFungi</label>
     </section>
     <section>
-      <input id="searchBox" type="text" placeholder="Търси в BG_NAME / LATIN_NAME…" aria-label="Search">
+      <input id="searchBox" type="text" placeholder="Потърси вид по име" aria-label="Search">
       <div class="row" style="margin-top:8px">
         <select id="ddSTATUS"><option value="">Природозащитен статус (всички)</option></select>
         <select id="ddFAMILY"><option value="">Семейство (всички)</option></select>
@@ -414,7 +414,7 @@ function renderListAndMarkers(features) {
       <div>${escapeHTML(main)} ${badges}</div>
       <div class="muted" style="font-size:12px">
         ${escapeHTML([p.STATUS, p.TYPE, p.FAMILY].filter(Boolean).join(' · '))}
-        <span class="badge" title="Брой точки за този вид">${item.count}</span>
+        <span class="badge" title="Брой нахождения за този вид">${item.count}</span>
       </div>
     `;
 
@@ -445,7 +445,7 @@ function renderListAndMarkers(features) {
     el.list.appendChild(div);
   }
 
-  el.count.textContent = `Намерени видове: ${uniqueList.length} (точки: ${totalPoints})`;
+  el.count.textContent = `Намерени видове: ${uniqueList.length} (Брой нахождения: ${totalPoints})`;
 
   if (bounds.length) {
     try { map.fitBounds(L.latLngBounds(bounds).pad(0.2)); } catch(e){}
@@ -547,3 +547,4 @@ function escapeHTML(v) {
 </script>
 </body>
 </html>
+
