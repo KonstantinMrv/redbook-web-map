@@ -215,9 +215,27 @@
       setGlobalExplodedFromActive();
       populateFilterDropdowns(state.explodedPoints);
 
+      /* Лек авто-зуум към границите на morph_units */
+      fitToMorphBG();
+
       wireControls();
       refreshFilterVisibility();
     });
+
+    /* ---- Лек авто-зуум само по морфоложкия слой ---- */
+    function fitToMorphBG() {
+      try {
+        const bounds = layers.poly.morph?.getBounds();
+        if (bounds && bounds.isValid()) {
+          map.fitBounds(bounds, {
+            padding: [30, 30], // лек падинг
+            maxZoom: 8         // не твърде близо
+          });
+        }
+      } catch (e) {
+        console.warn('Неуспешно начално побиране:', e);
+      }
+    }
 
     /* ---------- Helpers ---------- */
     function explodeMultiPoints(fc) {
@@ -344,6 +362,7 @@
       };
 
       const base = state.explodedPoints || [];
+      theFiltered = [];
       const filtered = [];
       for (const f of base) {
         const p = f.properties || {};
