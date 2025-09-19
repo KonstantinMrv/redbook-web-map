@@ -20,17 +20,22 @@
     #map { position:absolute; inset:0; }
 
     /* Унифициран панел */
-    #sidebar{
+    #sidebar {
       position:absolute; top:10px; right:10px; width:500px;
       max-width: calc(100vw - 20px);
-      max-height: calc(100% - 20px);
-      overflow-y: clip;      /* вертикален скрол при нужда */
-      overflow-x: clip;     /* без хоризонтално преливане */
+      height: 90vh;              /* фиксирана височина */
+      overflow-y: clip;          /* вътрешно скролиране */
+      overflow-x: clip;
       background:#fff; padding:var(--pad);
       border-radius:var(--radius);
       box-shadow:0 6px 18px rgba(0,0,0,.25);
       z-index:9999;
+      scrollbar-width: none;     /* скрий визуалната лента (Firefox) */
     }
+    #sidebar::-webkit-scrollbar {
+      display: none;             /* скрий визуалната лента (Chrome/Edge/Safari) */
+    }
+
     #sidebar h3{
       margin:0 0 var(--gap) 0;
       text-align:center; /* центриране на заглавието */
@@ -686,4 +691,5 @@
   </script>
 </body>
 </html>
+
 
