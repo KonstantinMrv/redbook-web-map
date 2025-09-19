@@ -540,16 +540,14 @@ function renderListAndMarkers(features) {
 
   el.count.textContent = `Намерени видове: ${uniqueList.length} (точки: ${totalPoints})`;
 
-  // Авто-зуум само в глобален режим (без избран полигон).
-  // Когато има селектиран полигон, НЕ пипаме мащаба.
-  // (Зуум ще има само при избор на вид от списъка.)
+  // Авто-зуум САМО в глобален режим (без избран полигон).
   if (!state.selectedPolygonFeature && features.length) {
     try {
       const b = L.latLngBounds(features.map(f => [f.geometry.coordinates[1], f.geometry.coordinates[0]]));
       map.fitBounds(b.pad(0.2), { maxZoom: 11 });
     } catch(e){}
   }
-
+}
 
 /* Popup table */
 function openPopupAt(latlng, props) {
@@ -666,4 +664,3 @@ function escapeHTML(v) {
 </script>
 </body>
 </html>
-
