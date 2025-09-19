@@ -9,58 +9,66 @@
   <style>
     :root { --pad:12px; --gap:8px; --radius:10px; }
 
-    /* ВАЖНО: предотвратява преливане на input/select */
+    /* Предотвратяване на преливане */
     *, *::before, *::after { box-sizing: border-box; }
 
-    html, body {
+    html, body{
       height:100%; margin:0; font-family:system-ui, Arial, sans-serif;
-      /* КРИТИЧНО: забрани хоризонтален скрол на цялата страница (1–2px преливане) */
-      overflow-x: hidden;
+      /* блокира хоризонталното преливане от субпиксели/скролбар */
+      overflow-x: clip;
     }
     #map { position:absolute; inset:0; }
 
-    /* Унифициран и фиксиран панел */
+    /* Унифициран панел */
     #sidebar{
       position:absolute; top:10px; right:10px; width:500px;
-      /* по-надеждно от 94vw: пазим по 10px отстъп от двете страни */
       max-width: calc(100vw - 20px);
-      max-height:calc(100% - 20px);
-      overflow-y:auto;          /* само вертикален скрол при нужда */
-      overflow-x:hidden;        /* без хоризонтален скрол */
+      max-height: calc(100% - 20px);
+      overflow-y:auto;      /* вертикален скрол при нужда */
+      overflow-x: clip;     /* без хоризонтално преливане */
       background:#fff; padding:var(--pad);
-      border-radius:var(--radius); box-shadow:0 6px 18px rgba(0,0,0,.25); z-index:9999;
+      border-radius:var(--radius);
+      box-shadow:0 6px 18px rgba(0,0,0,.25);
+      z-index:9999;
     }
-    #sidebar h3{ margin:0 0 var(--gap) 0; }
+    #sidebar h3{
+      margin:0 0 var(--gap) 0;
+      text-align:center; /* центриране на заглавието */
+    }
     .controls section{ margin-bottom:10px; }
     .controls label{ display:block; margin:4px 0; cursor:pointer; }
 
     /* Гридове без преливане */
     .row{
       display:grid;
-      grid-template-columns:minmax(0,1fr) minmax(0,1fr);
+      grid-template-columns: minmax(0,1fr) minmax(0,1fr);
       gap:var(--gap);
     }
-    /* КРИТИЧНО: позволи свиване на грид-детата, иначе се появява хор. скрол при дълги опции */
-    .row > * { min-width: 0; }
+    .row > *{ min-width:0; } /* критично срещу хор. скрол */
 
-    /* Форм елементи – на 100% вътре в панела */
+    /* Форм елементи – гарантирано в панела */
     input[type="text"], select{
-      width:100%; max-width:100%;
-      display:block;
+      width:100%; max-width:100%; display:block;
       padding:8px; border:1px solid #ccc; border-radius:6px; font-size:14px;
-      /* border-box вече е глобално */
-      min-width: 0; /* КРИТИЧНО: да се свиват вътре в grid */
+      min-width:0; /* да се свиват вътре в grid */
     }
 
-    /* Чупи дълги текстове (етикети/редове) вместо да раздуват панела */
-    label, .feature-item, .feature-row > div {
+    /* Дълги опции да не раздуват селектите */
+    #sidebar select{
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      overflow: hidden;
+    }
+
+    /* Дълги текстове в редовете */
+    label, .feature-item, .feature-row > div{
       overflow-wrap:anywhere;
       word-break:break-word;
     }
 
     .checkline{ display:flex; align-items:center; gap:8px; }
 
-    /* Бутони – центрирани, равни отстояния и фиксиран минимум */
+    /* Бутони – центрирани и равномерни */
     .btnbar{
       display:flex;
       justify-content: space-evenly;
@@ -123,7 +131,7 @@
   <div id="map"></div>
 
   <div id="sidebar" aria-label="Sidebar">
-    <h3>Червена книга — защитени видове</h3>
+    <h3>Червената книга на България - ГИС платформа</h3>
     <div class="controls" role="group" aria-label="Controls">
       <section>
         <strong>Основа</strong>
@@ -258,7 +266,7 @@
       setGlobalExplodedFromActive();
       populateFilterDropdowns(state.explodedPoints);
 
-      /* Лек авто-зуум към границите на morph_units + асиметричен padding спрямо панела */
+      /* Лек авто-зуум към morph_units + асиметричен десен padding според панела */
       fitToMorphBG();
 
       wireControls();
@@ -271,19 +279,18 @@
         const bounds = layers.poly.morph?.getBounds();
         if (!bounds || !bounds.isValid()) return;
 
-        // увери се, че Leaflet знае реалния размер на контейнера
+        // увери се, че Leaflet знае реалния размер
         map.invalidateSize();
 
-        // измери реалната ширина на сайдпанела и картата
+        // измери ширини
         const sidebar = document.getElementById('sidebar');
         const mapEl = document.getElementById('map');
         const sidebarW = sidebar ? sidebar.getBoundingClientRect().width : 0;
         const mapW = mapEl ? mapEl.clientWidth : window.innerWidth;
 
-        // ограничение (ако панелът е твърде голям)
+        // ограничение ако панелът е твърде голям
         const rightPad = Math.min(Math.round(sidebarW), Math.round(mapW * 0.45));
 
-        // асиметричен fit: повече падинг отдясно, за да остане място под панела
         map.fitBounds(bounds, {
           paddingTopLeft: [30, 30],
           paddingBottomRight: [30 + rightPad, 30],
@@ -294,7 +301,7 @@
       }
     }
 
-    /* --- Debounced resize: преизчисли началния fit веднъж след resize --- */
+    /* Debounced resize – преизчислява падинга при промяна */
     (function () {
       let t;
       window.addEventListener('resize', () => {
@@ -630,10 +637,8 @@
         t = setTimeout(applyFiltersAndRender, 300);
       });
 
-      [el.ddSTATUS, el.ddFAMILY, el.ddTYPE, el.ddORDER,
-       el.cbENDEMIC, el.cbRELICT].forEach(ctrl => {
-        ctrl.addEventListener('change', applyFiltersAndRender);
-      });
+      [el.ddSTATUS, el.ddFAMILY, el.ddTYPE, el.ddORDER, el.cbENDEMIC, el.cbRELICT]
+        .forEach(ctrl => ctrl.addEventListener('change', applyFiltersAndRender));
 
       el.btnClearFilters.addEventListener('click', () => {
         el.search.value = '';
