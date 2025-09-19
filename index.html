@@ -11,7 +11,7 @@
     html, body { height:100%; margin:0; font-family:system-ui, Arial, sans-serif; }
     #map { position:absolute; inset:0; }
     #sidebar{
-      position:absolute; top:10px; right:10px; width:420px; max-width:94vw;
+      position:absolute; top:10px; right:10px; width:500px; max-width:94vw; /* беше 420px */
       max-height:calc(100% - 20px); overflow:auto; background:#fff; padding:var(--pad);
       border-radius:var(--radius); box-shadow:0 6px 18px rgba(0,0,0,.25); z-index:9999;
     }
@@ -85,8 +85,9 @@
       </section>
       <section>
         <strong>Книги</strong>
-        <label><input type="radio" name="points" value="animals" checked> Том II. Животни</label>
+        <!-- Разменен ред: Том I горе, Том II долу (default остава animals checked) -->
         <label><input type="radio" name="points" value="plants"> Том I. Растения и гъби</label>
+        <label><input type="radio" name="points" value="animals" checked> Том II. Животни</label>
       </section>
       <section>
         <input id="searchBox" type="text" placeholder="Търси в BG_NAME / LATIN_NAME…" aria-label="Search">
@@ -215,14 +216,15 @@
       setGlobalExplodedFromActive();
       populateFilterDropdowns(state.explodedPoints);
 
-      /* Лек авто-зуум към границите на morph_units */
+      /* Лек авто-зуум към границите на morph_units + „бутване“ на изток,
+         за да компенсираме панела вдясно */
       fitToMorphBG();
 
       wireControls();
       refreshFilterVisibility();
     });
 
-    /* ---- Лек авто-зуум само по морфоложкия слой ---- */
+    /* ---- Лек авто-зуум само по морфоложкия слой + източен „nudging“ ---- */
     function fitToMorphBG() {
       try {
         const bounds = layers.poly.morph?.getBounds();
@@ -231,6 +233,9 @@
             padding: [30, 30], // лек падинг
             maxZoom: 8         // не твърде близо
           });
+          // Нежно изместване на центъра ~140 px надясно (на изток),
+          // за да не покрива панелът част от територията.
+          map.panBy([140, 0], { animate: false });
         }
       } catch (e) {
         console.warn('Неуспешно начално побиране:', e);
@@ -362,7 +367,6 @@
       };
 
       const base = state.explodedPoints || [];
-      theFiltered = [];
       const filtered = [];
       for (const f of base) {
         const p = f.properties || {};
