@@ -9,18 +9,18 @@
   <style>
     :root { --pad:12px; --gap:8px; --radius:10px; }
 
-    /* За да не преливат формите и гридовете */
+    /* ВАЖНО: предотвратява преливане на input/select */
     *, *::before, *::after { box-sizing: border-box; }
 
-    html, body { height:100%; margin:0; font-family: system-ui, Arial, sans-serif; }
+    html, body { height:100%; margin:0; font-family:system-ui, Arial, sans-serif; }
     #map { position:absolute; inset:0; }
 
-    /* Унифициран панел (еднакъв при растения и животни) */
+    /* Унифициран и фиксиран панел */
     #sidebar{
       position:absolute; top:10px; right:10px; width:500px; max-width:94vw;
       max-height:calc(100% - 20px);
-      overflow-y:auto;        /* само вертикален скрол при нужда */
-      overflow-x:hidden;      /* без хоризонтален скрол */
+      overflow-y:auto;          /* само вертикален скрол при нужда */
+      overflow-x:hidden;        /* без хоризонтален скрол */
       background:#fff; padding:var(--pad);
       border-radius:var(--radius); box-shadow:0 6px 18px rgba(0,0,0,.25); z-index:9999;
     }
@@ -28,22 +28,25 @@
     .controls section{ margin-bottom:10px; }
     .controls label{ display:block; margin:4px 0; cursor:pointer; }
 
-    /* Грид редове, които не разширяват панела */
+    /* Гридове без преливане */
     .row{
       display:grid;
-      grid-template-columns: minmax(0,1fr) minmax(0,1fr);
+      grid-template-columns:minmax(0,1fr) minmax(0,1fr);
       gap:var(--gap);
     }
-    .row > * { min-width: 0; }   /* критично срещу хор. скрол */
+    /* КРИТИЧНО: позволи свиване на грид-детата, иначе се появява хор. скрол при дълги опции */
+    .row > * { min-width: 0; }
 
-    /* Форм елементи – винаги в границите на панела */
+    /* Форм елементи – на 100% вътре в панела */
     input[type="text"], select{
-      width:100%; max-width:100%; display:block;
-      min-width:0;                /* позволи свиване в grid */
+      width:100%; max-width:100%;
+      display:block;
       padding:8px; border:1px solid #ccc; border-radius:6px; font-size:14px;
+      /* border-box вече е глобално */
+      min-width: 0; /* КРИТИЧНО: да се свиват вътре в grid */
     }
 
-    /* Дълги надписи да се чупят, вместо да бутат ширината */
+    /* Чупи дълги текстове (етикети/редове) вместо да раздуват панела */
     label, .feature-item, .feature-row > div {
       overflow-wrap:anywhere;
       word-break:break-word;
@@ -72,6 +75,7 @@
       border-top:1px solid #ddd; margin-top:6px;
       height:50vh; overflow:auto;
     }
+
     .feature-item{ cursor:pointer; padding:10px 6px; border-bottom:1px solid #eee; }
     .feature-item:hover{ background:#faf6e8; }
 
@@ -80,26 +84,26 @@
     .muted{ color:#666; }
     .hidden{ display:none !important; }
 
-    /* Leaflet point markers */
+    /* Маркери */
     .pt-marker{
       background:#1f78b4; width:8px; height:8px; border-radius:50%; border:1px solid #fff;
       box-shadow:0 0 0 1px rgba(0,0,0,.15);
     }
     .pt-marker.highlight{ background:#ff7f0e; }
 
-    /* Polygon labels */
+    /* Етикети на полигони */
     .poly-label{
       background:rgba(255,255,255,0.75);
       padding:2px 6px; border-radius:8px; border:1px solid #ccc;
       font-size:12px; color:#333; box-shadow:0 1px 3px rgba(0,0,0,.15);
     }
 
-    /* По-изразено hover на полигони */
+    /* Hover полигони */
     .leaflet-interactive.hovered{ stroke-width:3px !important; filter:brightness(1.2); }
 
-    /* Бутон за статия в списъка — фиксирана ширина и стабилен ред */
+    /* Ред с бутон линк */
     .feature-row{
-      display:grid; grid-template-columns: 1fr 120px; align-items:center; gap:8px;
+      display:grid; grid-template-columns:1fr 120px; align-items:center; gap:8px;
     }
     .link-btn{
       width:120px; text-align:center; padding:6px 8px; font-size:12px;
@@ -248,31 +252,32 @@
       setGlobalExplodedFromActive();
       populateFilterDropdowns(state.explodedPoints);
 
-      /* Начален „лек“ fit с асиметричен десен padding = ширина на панела */
+      /* Лек авто-зуум към границите на morph_units + асиметричен padding спрямо панела */
       fitToMorphBG();
 
       wireControls();
       refreshFilterVisibility();
     });
 
-    /* ---- Начален fit + асиметричен десен padding, за да не влиза под панела ---- */
+    /* ---- Лек авто-зуум само по морфоложкия слой + асиметричен десен padding ---- */
     function fitToMorphBG() {
       try {
         const bounds = layers.poly.morph?.getBounds();
         if (!bounds || !bounds.isValid()) return;
 
-        // Увери се, че Leaflet знае реалния размер
+        // увери се, че Leaflet знае реалния размер на контейнера
         map.invalidateSize();
 
-        // Измери ширини
+        // измери реалната ширина на сайдпанела и картата
         const sidebar = document.getElementById('sidebar');
         const mapEl = document.getElementById('map');
         const sidebarW = sidebar ? sidebar.getBoundingClientRect().width : 0;
         const mapW = mapEl ? mapEl.clientWidth : window.innerWidth;
 
-        // Ограничение ако панелът е твърде голям
+        // ограничение (ако панелът е твърде голям)
         const rightPad = Math.min(Math.round(sidebarW), Math.round(mapW * 0.45));
 
+        // асиметричен fit: повече падинг отдясно, за да остане място под панела
         map.fitBounds(bounds, {
           paddingTopLeft: [30, 30],
           paddingBottomRight: [30 + rightPad, 30],
@@ -283,7 +288,7 @@
       }
     }
 
-    /* Debounced resize – преизчислява падинга при промяна */
+    /* --- Debounced resize: преизчисли началния fit веднъж след resize --- */
     (function () {
       let t;
       window.addEventListener('resize', () => {
@@ -355,6 +360,21 @@
         sel.appendChild(mk(v, v));
       }
       if ([...sel.options].some(o=>o.value===current)) sel.value = current;
+    }
+
+    function populateFilterDropdowns(features) {
+      const vals = { STATUS:[], FAMILY:[], TYPE:[], ORDER:[] };
+      for (const f of features) {
+        const p = f.properties || {};
+        if (p.STATUS!=null) vals.STATUS.push(p.STATUS);
+        if (p.FAMILY!=null) vals.FAMILY.push(p.FAMILY);
+        if (p.TYPE!=null)   vals.TYPE.push(p.TYPE);
+        if (p.ORDER!=null)  vals.ORDER.push(p.ORDER);
+      }
+      fillSelect(el.ddSTATUS, uniqueSorted(vals.STATUS), 'Природозащитен статус (всички)');
+      fillSelect(el.ddFAMILY, uniqueSorted(vals.FAMILY), 'Семейство (всички)');
+      fillSelect(el.ddTYPE, uniqueSorted(vals.TYPE), 'Тип (всички)');
+      fillSelect(el.ddORDER, uniqueSorted(vals.ORDER), 'Разред (всички)');
     }
 
     function normalize(v) {
