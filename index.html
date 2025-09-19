@@ -203,14 +203,14 @@
         <label><input type="radio" name="polyMain" value="land"> Ландшафтно райониране</label>
 
         <label class="checkline" style="margin-top:6px;">
-          <input type="radio" name="polyMain" value="zones"> Natura 2000 / Защитени зони
+          <input type="radio" name="polyMain" value="zones"> Защитени територии
         </label>
         <div id="zonesLine" class="zones-row hidden">
           <div class="zones-label">Изберете слой</div>
           <select id="ddZones">
             <option value="n2k_birds">Natura 2000 — Зони за птици</option>
             <option value="n2k_habitats">Natura 2000 — Зони по местообитания</option>
-            <option value="protected_area">Защитени територии</option>
+            <option value="protected_area">Защитени територии по ЗЗТ</option>
           </select>
         </div>
       </section>
@@ -222,9 +222,9 @@
       </section>
 
       <section>
-        <input id="searchBox" type="text" placeholder="Търси в BG_NAME / LATIN_NAME…" aria-label="Search">
+        <input id="searchBox" type="text" placeholder="Търси по наименование" aria-label="Search">
         <div class="row" style="margin-top:8px">
-          <select id="ddSTATUS"><option value="">Природозащитен статус (всички)</option></select>
+          <select id="ddSTATUS"><option value="">Статус (всички)</option></select>
           <select id="ddFAMILY"><option value="">Семейство (всички)</option></select>
         </div>
         <div class="row" id="rowTypeOrder" style="margin-top:8px">
@@ -237,13 +237,12 @@
         </div>
         <div class="btnbar">
           <button id="btnClearFilters" title="Изчисти всички филтри">Изчисти филтрите</button>
-          <button id="btnClearSel" title="Изчисти селекцията на полигон">Изчисти селекцията</button>
+          <button id="btnClearSel" title="Изчисти селекцията от картата">Изчисти селекцията</button>
         </div>
-        <div class="legend muted">Съвет: напишете търсене или изберете полигон/филтри.</div>
       </section>
     </div>
 
-    <div id="count" class="muted">Въведете търсене или изберете филтър.</div>
+    <div id="count" class="muted">Въведете търсене или изберете територия от картата.</div>
     <div id="list" role="list" aria-label="Result list"></div>
   </div>
 
@@ -288,7 +287,7 @@
       },
       protected_area: {
         url: 'data/protected_area.geojson',
-        label: 'Защитени територии',
+        label: 'Защитени територии по ЗЗТ',
         baseStyle: { color:'#8E24AA', weight:1.2, fillColor:'#E1BEE7', fillOpacity:.35 },
         selStyle:  { color:'#6A1B9A', weight:3,   fillColor:'#F3E5F5', fillOpacity:.55 },
         layer: null, loaded: false
@@ -547,7 +546,7 @@
         for (const m of state.currentMarkers) state.pointMarkerLayer.addLayer(m);
         const speciesCount = new Set(state.filteredPoints.map(f => speciesKey(f.properties))).size;
         el.count.textContent =
-          `Намерени видове: ${speciesCount} (точки: ${state.filteredPoints.length})`;
+          `Намерени видове: ${speciesCount} (общ брой нахождения: ${state.filteredPoints.length})`;
         return;
       }
       const group = state.currentMarkersByKey.get(state.selectedSpeciesKey) || [];
@@ -555,7 +554,7 @@
         state.pointMarkerLayer.addLayer(m);
         m._icon?.classList.add('highlight');
       }
-      el.count.textContent = `Намерени видове: 1 (точки: ${group.length})`;
+      el.count.textContent = `Намерени видове: 1 (общ брой нахождения: ${group.length})`;
     }
 
     /* ---------- Основен филтър и рендер ---------- */
@@ -710,7 +709,7 @@
         if (typeof item.count === 'number'){
           const cnt = document.createElement('span');
           cnt.className = 'chip chip--count';
-          cnt.title = 'Брой точки за вида';
+          cnt.title = 'Брой нахождения за вида';
           cnt.textContent = item.count;
           meta.appendChild(cnt);
         }
@@ -774,7 +773,7 @@
       }
 
       // Обнови брояча (по подразбиране – всички филтрирани)
-      el.count.textContent = `Намерени видове: ${uniqueList.length} (точки: ${totalPoints})`;
+      el.count.textContent = `Намерени видове: ${uniqueList.length} (общ брой нахождения: ${totalPoints})`;
 
       // Ако има активна селекция по вид, приложи филтъра
       if (state.selectedSpeciesKey) filterMarkersToSelectedSpecies();
@@ -985,3 +984,4 @@
   </script>
 </body>
 </html>
+
