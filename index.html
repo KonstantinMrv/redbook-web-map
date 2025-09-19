@@ -7,86 +7,69 @@
   <!-- Leaflet -->
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
   <style>
-    :root { --pad: 12px; --gap: 8px; --radius: 10px; }
-    html, body { height: 100%; margin: 0; font-family: system-ui, Arial, sans-serif; }
-    #map { position: absolute; inset: 0; }
-    #sidebar {
-      position: absolute; top: 10px; right: 10px; width: 420px; max-width: 94vw;
-      max-height: calc(100% - 20px); overflow: auto; background: #fff; padding: var(--pad);
-      border-radius: var(--radius); box-shadow: 0 6px 18px rgba(0,0,0,.25); z-index: 9999;
+    :root { --pad:12px; --gap:8px; --radius:10px; }
+    html, body { height:100%; margin:0; font-family:system-ui, Arial, sans-serif; }
+    #map { position:absolute; inset:0; }
+    #sidebar{
+      position:absolute; top:10px; right:10px; width:420px; max-width:94vw;
+      max-height:calc(100% - 20px); overflow:auto; background:#fff; padding:var(--pad);
+      border-radius:var(--radius); box-shadow:0 6px 18px rgba(0,0,0,.25); z-index:9999;
     }
-    #sidebar h3 { margin: 0 0 var(--gap) 0; }
-    .controls section { margin-bottom: 10px; }
-    .controls label { display: block; margin: 4px 0; cursor: pointer; }
-    .row { display: grid; grid-template-columns: 1fr 1fr; gap: var(--gap); }
-    .row > * { width: 100%; }
-    input[type="text"], select {
-      width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 6px; font-size: 14px;
+    #sidebar h3{ margin:0 0 var(--gap) 0; }
+    .controls section{ margin-bottom:10px; }
+    .controls label{ display:block; margin:4px 0; cursor:pointer; }
+    .row{ display:grid; grid-template-columns:1fr 1fr; gap:var(--gap); }
+    input[type="text"], select{
+      width:100%; padding:8px; border:1px solid #ccc; border-radius:6px; font-size:14px;
     }
-    .checkline { display:flex; align-items:center; gap:8px; }
-    .btnbar { display:flex; gap: var(--gap); margin: 6px 0 10px; }
-    button {
-      padding: 8px 10px; border-radius: 8px; border: 1px solid #ccc; background:#f6f6f6; cursor:pointer;
+    .checkline{ display:flex; align-items:center; gap:8px; }
+    .btnbar{ display:flex; gap:var(--gap); margin:6px 0 10px; }
+    button{
+      padding:8px 10px; border-radius:8px; border:1px solid #ccc; background:#f6f6f6; cursor:pointer;
     }
-    button:hover { background:#eee; }
-    #count { margin: 6px 0; font-weight: 600; }
+    button:hover{ background:#eee; }
+    #count{ margin:6px 0; font-weight:600; }
 
-    /* Фиксирани размери на списъка */
-    #list {
-      border-top: 1px solid #ddd; margin-top: 6px;
-      height: 50vh; /* фиксирана височина ~ половин екран */
-      overflow: auto; /* скрол в списъка */
+    /* Фиксиран списък */
+    #list{
+      border-top:1px solid #ddd; margin-top:6px;
+      height:50vh; overflow:auto;
     }
+    .feature-item{ cursor:pointer; padding:10px 6px; border-bottom:1px solid #eee; }
+    .feature-item:hover{ background:#faf6e8; }
 
-    .feature-item { cursor:pointer; padding:10px 6px; border-bottom:1px solid #eee; }
-    .feature-item:hover { background:#faf6e8; }
+    .badge{ display:inline-block; font-size:11px; padding:2px 6px; border-radius:999px; background:#eef; border:1px solid #ccd; margin-left:6px; }
+    .legend{ font-size:12px; color:#666; }
+    .muted{ color:#666; }
+    .hidden{ display:none !important; }
 
-    .badge { display:inline-block; font-size: 11px; padding: 2px 6px; border-radius: 999px; background:#eef; border:1px solid #ccd; margin-left: 6px; }
-    .legend { font-size: 12px; color:#666; }
-    .muted { color:#666; }
-    .hidden { display:none !important; }
-
-    /* Leaflet point markers */
-    .pt-marker {
-      background: #1f78b4; width: 8px; height: 8px; border-radius: 50%; border: 1px solid white;
-      box-shadow: 0 0 0 1px rgba(0,0,0,.15);
+    /* Маркери */
+    .pt-marker{
+      background:#1f78b4; width:8px; height:8px; border-radius:50%; border:1px solid #fff;
+      box-shadow:0 0 0 1px rgba(0,0,0,.15);
     }
-    .pt-marker.highlight { background:#ff7f0e; }
+    .pt-marker.highlight{ background:#ff7f0e; }
 
-    /* Polygon labels */
-    .poly-label {
-      background: rgba(255,255,255,0.75);
-      padding: 2px 6px;
-      border-radius: 8px;
-      border: 1px solid #ccc;
-      font-size: 12px;
-      color: #333;
-      box-shadow: 0 1px 3px rgba(0,0,0,.15);
+    /* Етикети на полигони */
+    .poly-label{
+      background:rgba(255,255,255,0.75);
+      padding:2px 6px; border-radius:8px; border:1px solid #ccc;
+      font-size:12px; color:#333; box-shadow:0 1px 3px rgba(0,0,0,.15);
     }
 
-    /* По-изразено hover на полигони */
-    .leaflet-interactive.hovered { stroke-width: 3px !important; filter: brightness(1.2); }
+    /* Hover полигони */
+    .leaflet-interactive.hovered{ stroke-width:3px !important; filter:brightness(1.2); }
 
-    /* Бутон за статия в списъка — фиксирана ширина и стабилен ред */
-    .feature-row {
-      display: grid;
-      grid-template-columns: 1fr 120px; /* ляво: текст, дясно: бутон с фиксирана ширина */
-      align-items: center;
-      gap: 8px;
+    /* Ред с бутон линк */
+    .feature-row{
+      display:grid; grid-template-columns:1fr 120px; align-items:center; gap:8px;
     }
-    .link-btn {
-      width: 120px; /* фиксирана ширина */
-      text-align: center;
-      padding: 6px 8px;
-      font-size: 12px;
-      border-radius: 6px;
-      border: 1px solid #ccc;
-      background: #f4f6ff;
-      cursor: pointer;
-      white-space: nowrap; /* не позволява пренасяне */
+    .link-btn{
+      width:120px; text-align:center; padding:6px 8px; font-size:12px;
+      border-radius:6px; border:1px solid #ccc; background:#f4f6ff; cursor:pointer; white-space:nowrap;
     }
-    .link-btn:hover { background: #e9edff; }
-    .link-btn:disabled { opacity: .5; cursor: not-allowed; }
+    .link-btn:hover{ background:#e9edff; }
+    .link-btn:disabled{ opacity:.5; cursor:not-allowed; }
   </style>
 </head>
 <body>
@@ -96,14 +79,14 @@
     <h3>Червена книга — защитени видове</h3>
     <div class="controls" role="group" aria-label="Controls">
       <section>
-        <strong>Полигонов слой</strong>
-        <label><input type="radio" name="poly" value="morph" checked> morph_units</label>
-        <label><input type="radio" name="poly" value="land"> landscape_zoning</label>
+        <strong>Основа</strong>
+        <label><input type="radio" name="poly" value="morph" checked> Геоморфоложки структури</label>
+        <label><input type="radio" name="poly" value="land"> Ландшафтно райониране</label>
       </section>
       <section>
-        <strong>Точков слой</strong>
-        <label><input type="radio" name="points" value="animals" checked> Animals</label>
-        <label><input type="radio" name="points" value="plants"> PlantsFungi</label>
+        <strong>Книги</strong>
+        <label><input type="radio" name="points" value="animals" checked> Том II. Животни</label>
+        <label><input type="radio" name="points" value="plants"> Том I. Растения и гъби</label>
       </section>
       <section>
         <input id="searchBox" type="text" placeholder="Търси в BG_NAME / LATIN_NAME…" aria-label="Search">
@@ -114,9 +97,6 @@
         <div class="row" id="rowTypeOrder" style="margin-top:8px">
           <select id="ddTYPE"><option value="">Тип (всички)</option></select>
           <select id="ddORDER"><option value="">Разред (всички)</option></select>
-        </div>
-        <div class="row" style="margin-top:8px">
-          <select id="ddDISTRIBUTION"><option value="">Разпространение (всички)</option></select>
         </div>
         <div class="row" style="margin-top:8px">
           <label class="checkline"><input type="checkbox" id="cbENDEMIC"> Ендемит</label>
@@ -132,7 +112,7 @@
         <div class="legend muted">Съвет: напишете търсене или изберете полигон/филтри.</div>
       </section>
     </div>
-    <div id="count" class="muted">Въведете търсене или изберете полигон.</div>
+    <div id="count" class="muted">Въведете търсене или изберете филтър.</div>
     <div id="list" role="list" aria-label="Result list"></div>
   </div>
 
@@ -156,10 +136,9 @@
       activePts:  'animals', // 'animals' | 'plants'
       selectedPolygonFeature: null,
       selectedPolygonLayer: null,
-      explodedPoints: [],        // текущият базов набор за филтриране (в полигона или глобално)
+      explodedPoints: [],
       filteredPoints: [],
       pointMarkerLayer: L.layerGroup().addTo(map),
-      idCounter: 0,
       currentMarkers: [],
       currentMarkersByKey: new Map(),
       selectedSpeciesKey: null
@@ -172,7 +151,6 @@
       ddFAMILY: document.getElementById('ddFAMILY'),
       ddTYPE: document.getElementById('ddTYPE'),
       ddORDER: document.getElementById('ddORDER'),
-      ddDISTRIBUTION: document.getElementById('ddDISTRIBUTION'),
       cbENDEMIC: document.getElementById('cbENDEMIC'),
       cbRELICT: document.getElementById('cbRELICT'),
       cbEXTINCT: document.getElementById('cbEXTINCT'),
@@ -187,17 +165,15 @@
     /* ---------- Layers ---------- */
     const layers = { poly: {}, data: {} };
 
-    /* Стилове за полигони: базови и „светещи“ при селекция */
     const BASE_STYLES = {
       morph: { color: '#B08D57', weight: 1, fillColor: '#F3E5AB', fillOpacity: 0.65 },
       land:  { color: '#5A8F68', weight: 1, fillColor: '#CDE8B8', fillOpacity: 0.65 }
     };
     const SELECTED_STYLES = {
-      morph: { color: '#B08D57', weight: 4, fillColor: '#FFF4C9', fillOpacity: 0.8 }, // по-светло бежово
-      land:  { color: '#5A8F68', weight: 4, fillColor: '#E9F6D8', fillOpacity: 0.8 }  // по-светло зелено
+      morph: { color: '#B08D57', weight: 4, fillColor: '#FFF4C9', fillOpacity: 0.8 },
+      land:  { color: '#5A8F68', weight: 4, fillColor: '#E9F6D8', fillOpacity: 0.8 }
     };
 
-    /* Label helper (NAME) */
     function getPolyLabel(props = {}) { return props.NAME || ''; }
 
     /* Load data and build layers */
@@ -231,54 +207,19 @@
           const lbl = getPolyLabel(f.properties);
           if (lbl) l.bindTooltip(lbl, { permanent: true, direction: 'center', className: 'poly-label' });
         }
-      }); // не е добавен по начало
+      });
 
       layers.data.animals = animals;
       layers.data.plants  = plants;
 
-      // първоначално: глобален набор за активния точков слой (за глобално търсене)
       setGlobalExplodedFromActive();
       populateFilterDropdowns(state.explodedPoints);
 
-      // НИКАКЪВ зууум тук
       wireControls();
       refreshFilterVisibility();
     });
 
     /* ---------- Helpers ---------- */
-    function setGlobalExplodedFromActive() {
-      const fc = layers.data[state.activePts];
-      state.explodedPoints = explodeMultiPoints(fc);
-    }
-
-    function onPolygonClick(feature, layer) {
-      state.activePts = document.querySelector('input[name="points"]:checked').value;
-
-      // Върни предишния полигон към базов стил
-      if (state.selectedPolygonLayer) {
-        try { state.selectedPolygonLayer.setStyle(BASE_STYLES[state.activePoly]); } catch(e){}
-      }
-
-      // Запази текущия като селектиран и „светни“ го
-      state.selectedPolygonLayer = layer;
-      state.selectedPolygonFeature = feature;
-      layer.setStyle(SELECTED_STYLES[state.activePoly]);
-
-      // НЕ ЗУУМВАМЕ към полигона
-
-      // Explode -> only inside
-      const exploded = explodeMultiPoints(layers.data[state.activePts]);
-      const inside = [];
-      for (const pt of exploded) {
-        if (turf.booleanPointInPolygon(pt, feature)) inside.push(pt);
-      }
-      state.explodedPoints = inside;
-
-      populateFilterDropdowns(inside);
-      applyFiltersAndRender();
-    }
-
-    /* ---------- MultiPoint -> Point[] ---------- */
     function explodeMultiPoints(fc) {
       const out = [];
       for (const f of fc.features) {
@@ -294,33 +235,38 @@
       return out;
     }
 
-    /* ---------- Filters ---------- */
-    function isTruthy(v) {
-      if (v === null || v === undefined) return false;
-      const s = String(v).trim().toLowerCase();
-      return ['1','y','yes','true','да'].includes(s) || s.startsWith('y') || s.startsWith('д');
+    function setGlobalExplodedFromActive() {
+      const fc = layers.data[state.activePts];
+      state.explodedPoints = explodeMultiPoints(fc);
     }
+
+    function onPolygonClick(feature, layer) {
+      state.activePts = document.querySelector('input[name="points"]:checked').value;
+
+      if (state.selectedPolygonLayer) {
+        try { state.selectedPolygonLayer.setStyle(BASE_STYLES[state.activePoly]); } catch(e){}
+      }
+
+      state.selectedPolygonLayer = layer;
+      state.selectedPolygonFeature = feature;
+      layer.setStyle(SELECTED_STYLES[state.activePoly]);
+
+      const exploded = explodeMultiPoints(layers.data[state.activePts]);
+      const inside = [];
+      for (const pt of exploded) {
+        if (turf.booleanPointInPolygon(pt, feature)) inside.push(pt);
+      }
+      state.explodedPoints = inside;
+
+      populateFilterDropdowns(inside);
+      applyFiltersAndRender();
+    }
+
     function uniqueSorted(values) {
       return [...new Set(values.filter(v => v !== null && v !== undefined && String(v).trim() !== ''))]
         .map(String).sort((a,b)=>a.localeCompare(b,'bg',{sensitivity:'base'}));
     }
-    function populateFilterDropdowns(features) {
-      const vals = { STATUS:[], FAMILY:[], TYPE:[], ORDER:[], DISTRIBUTION:[] };
-      for (const f of features) {
-        const p = f.properties || {};
-        if (p.STATUS!=null)        vals.STATUS.push(p.STATUS);
-        if (p.FAMILY!=null)        vals.FAMILY.push(p.FAMILY);
-        if (p.TYPE!=null)          vals.TYPE.push(p.TYPE);
-        if (p.ORDER!=null)         vals.ORDER.push(p.ORDER);
-        if (p.DISTRIBUTION!=null)  vals.DISTRIBUTION.push(p.DISTRIBUTION);
-      }
-      // Алиаси на български
-      fillSelect(el.ddSTATUS,       ['','...'].concat(uniqueSorted(vals.STATUS)),       'Природозащитен статус (всички)');
-      fillSelect(el.ddFAMILY,       ['','...'].concat(uniqueSorted(vals.FAMILY)),       'Семейство (всички)');
-      fillSelect(el.ddTYPE,         ['','...'].concat(uniqueSorted(vals.TYPE)),         'Тип (всички)');
-      fillSelect(el.ddORDER,        ['','...'].concat(uniqueSorted(vals.ORDER)),        'Разред (всички)');
-      fillSelect(el.ddDISTRIBUTION, ['','...'].concat(uniqueSorted(vals.DISTRIBUTION)), 'Разпространение (всички)');
-    }
+
     function fillSelect(sel, values, firstLabel) {
       const current = sel.value;
       sel.innerHTML = '';
@@ -338,21 +284,39 @@
       if ([...sel.options].some(o=>o.value===current)) sel.value = current;
     }
 
-    /* normalize string for case/diacritic-insensitive search */
+    function populateFilterDropdowns(features) {
+      const vals = { STATUS:[], FAMILY:[], TYPE:[], ORDER:[] };
+      for (const f of features) {
+        const p = f.properties || {};
+        if (p.STATUS!=null) vals.STATUS.push(p.STATUS);
+        if (p.FAMILY!=null) vals.FAMILY.push(p.FAMILY);
+        if (p.TYPE!=null)   vals.TYPE.push(p.TYPE);
+        if (p.ORDER!=null)  vals.ORDER.push(p.ORDER);
+      }
+      fillSelect(el.ddSTATUS, uniqueSorted(vals.STATUS), 'Природозащитен статус (всички)');
+      fillSelect(el.ddFAMILY, uniqueSorted(vals.FAMILY), 'Семейство (всички)');
+      fillSelect(el.ddTYPE, uniqueSorted(vals.TYPE), 'Тип (всички)');
+      fillSelect(el.ddORDER, uniqueSorted(vals.ORDER), 'Разред (всички)');
+    }
+
     function normalize(v) {
       if (v == null) return '';
       try { return String(v).toLowerCase().normalize('NFD').replace(/\p{Diacritic}/gu,''); }
       catch(e) { return String(v).toLowerCase(); }
     }
 
-    /* Key for species (unique list) */
+    function isTruthy(v) {
+      if (v === null || v === undefined) return false;
+      const s = String(v).trim().toLowerCase();
+      return ['1','y','yes','true','да'].includes(s) || s.startsWith('y') || s.startsWith('д');
+    }
+
     function speciesKey(props = {}) {
       const la = (props.LATIN_NAME || '').trim();
       const bg = (props.BG_NAME || '').trim();
       return `${la}||${bg}`;
     }
 
-    /* ---------- Links helper ---------- */
     function getFeatureLink(props = {}) {
       const cand = props.ARTICLE_URL || props.LINK || props.URL || props.WEB || props.WIKI || props.WIKIPEDIA;
       if (!cand) return null;
@@ -362,10 +326,7 @@
       try { new URL(href); return href; } catch { return null; }
     }
 
-    /* Apply filters and render unique list + highlight groups
-       - Работи и без полигон (глобално търсене/филтри по активния точков слой) */
     function applyFiltersAndRender() {
-      // ако няма избран полигон, базовият набор е глобалният за активния точков слой
       if (!state.selectedPolygonFeature && (!state.explodedPoints || !state.explodedPoints.length)) {
         setGlobalExplodedFromActive();
         populateFilterDropdowns(state.explodedPoints);
@@ -377,7 +338,6 @@
         FAMILY: el.ddFAMILY.value,
         TYPE: el.ddTYPE.value,
         ORDER: el.ddORDER.value,
-        DISTRIBUTION: el.ddDISTRIBUTION.value,
         ENDEMIC: el.cbENDEMIC.checked,
         RELICT: el.cbRELICT.checked,
         EXTINCT: el.cbEXTINCT.checked
@@ -390,18 +350,17 @@
         const nameBG = normalize(p.BG_NAME);
         const nameLA = normalize(p.LATIN_NAME);
 
-        const anyFilterOn = search || sel.STATUS || sel.FAMILY || sel.TYPE || sel.ORDER || sel.DISTRIBUTION || sel.ENDEMIC || sel.RELICT || (state.activePts==='plants' && sel.EXTINCT);
+        const anyFilterOn = search || sel.STATUS || sel.FAMILY || sel.TYPE || sel.ORDER || sel.ENDEMIC || sel.RELICT || (state.activePts==='plants' && sel.EXTINCT);
         if (!state.selectedPolygonFeature && !anyFilterOn) continue;
 
         if (search && !(nameBG.includes(search) || nameLA.includes(search))) continue;
 
-        if (sel.STATUS        && String(p.STATUS)        !== sel.STATUS)        continue;
-        if (sel.FAMILY        && String(p.FAMILY)        !== sel.FAMILY)        continue;
+        if (sel.STATUS && String(p.STATUS) !== sel.STATUS) continue;
+        if (sel.FAMILY && String(p.FAMILY) !== sel.FAMILY) continue;
         if (state.activePts === 'animals') {
-          if (sel.TYPE        && String(p.TYPE)          !== sel.TYPE)          continue;
-          if (sel.ORDER       && String(p.ORDER)         !== sel.ORDER)         continue;
+          if (sel.TYPE  && String(p.TYPE)  !== sel.TYPE)  continue;
+          if (sel.ORDER && String(p.ORDER) !== sel.ORDER) continue;
         }
-        if (sel.DISTRIBUTION  && String(p.DISTRIBUTION)  !== sel.DISTRIBUTION)  continue;
 
         if (sel.ENDEMIC && !isTruthy(p.ENDEMIC)) continue;
         if (sel.RELICT  && !isTruthy(p.RELICT))  continue;
@@ -412,7 +371,7 @@
 
       state.filteredPoints = filtered;
 
-      if (!state.selectedPolygonFeature && !(search || sel.STATUS || sel.FAMILY || sel.TYPE || sel.ORDER || sel.DISTRIBUTION || sel.ENDEMIC || sel.RELICT || (state.activePts==='plants' && sel.EXTINCT))) {
+      if (!state.selectedPolygonFeature && !(search || sel.STATUS || sel.FAMILY || sel.TYPE || sel.ORDER || sel.ENDEMIC || sel.RELICT || (state.activePts==='plants' && sel.EXTINCT))) {
         el.count.textContent = 'Въведете търсене или изберете филтър.';
         el.list.innerHTML = '';
         state.pointMarkerLayer.clearLayers();
@@ -422,7 +381,6 @@
       renderListAndMarkers(filtered);
     }
 
-    /* Render list (unique species) and all markers; click list -> highlight group */
     function renderListAndMarkers(features) {
       const totalPoints = features.length;
 
@@ -478,7 +436,6 @@
           (state.activePts==='plants' && isTruthy(p.EXTINCT)) ? '<span class="badge">Изчезнал</span>' : ''
         ].join(' ');
 
-        /* Горен ред: текст + бутон с фиксирана ширина */
         const topRow = document.createElement('div');
         topRow.className = 'feature-row';
 
@@ -493,12 +450,11 @@
         btn.disabled = !linkHref;
         btn.title = linkHref ? 'Отваря статия в нов таб' : 'Няма наличен линк';
         btn.addEventListener('click', (ev) => {
-          ev.stopPropagation(); // да не активира селекция
+          ev.stopPropagation();
           if (linkHref) window.open(linkHref, '_blank', 'noopener');
         });
         topRow.appendChild(btn);
 
-        /* Долен ред: мета + бадж за брой */
         const meta = document.createElement('div');
         meta.className = 'muted';
         meta.style.fontSize = '12px';
@@ -510,11 +466,9 @@
         meta.appendChild(document.createTextNode(' '));
         meta.appendChild(countBadge);
 
-        /* Сглобяване */
         div.appendChild(topRow);
         div.appendChild(meta);
 
-        /* Клик по елемента → само подсвет (без зууум/пан) */
         div.onclick = () => {
           state.selectedSpeciesKey = item.key;
           for (const m of state.currentMarkers) { m._icon?.classList.remove('highlight'); }
@@ -526,11 +480,8 @@
       }
 
       el.count.textContent = `Намерени видове: ${uniqueList.length} (точки: ${totalPoints})`;
-
-      // НИКАКЪВ авто-зууум тук
     }
 
-    /* Popup table */
     function openPopupAt(latlng, props) {
       const rows = [];
       const link = getFeatureLink(props);
@@ -541,9 +492,7 @@
             <td><a href="${escapeHTML(link)}" target="_blank" rel="noopener">Отвори статия</a></td>
           </tr>`);
       }
-      const keysOrder = [
-        'BG_NAME','LATIN_NAME','STATUS','TYPE','ORDER','FAMILY','DISTRIBUTION','ENDEMIC','RELICT','EXTINCT'
-      ];
+      const keysOrder = ['BG_NAME','LATIN_NAME','STATUS','TYPE','ORDER','FAMILY','ENDEMIC','RELICT','EXTINCT'];
       for (const k of keysOrder) {
         if (props[k] !== undefined) {
           rows.push(`
@@ -570,17 +519,13 @@
     function wireControls() {
       document.querySelectorAll('input[name="poly"]').forEach(r => {
         r.addEventListener('change', () => {
-          // махни текущия полигонов слой
           map.removeLayer(layers.poly[state.activePoly]);
-          // върни стил на евентуално селектиран предишен полигон
           if (state.selectedPolygonLayer) {
             try { state.selectedPolygonLayer.setStyle(BASE_STYLES[state.activePoly]); } catch(e){}
           }
-          // смени активния слой
           state.activePoly = r.value;
           map.addLayer(layers.poly[state.activePoly]);
-          clearSelection(); // към глобален режим (без селектиран полигон)
-          // НИКАКЪВ зууум тук
+          clearSelection();
         });
       });
 
@@ -604,14 +549,14 @@
         t = setTimeout(applyFiltersAndRender, 300);
       });
 
-      [el.ddSTATUS, el.ddFAMILY, el.ddTYPE, el.ddORDER, el.ddDISTRIBUTION,
+      [el.ddSTATUS, el.ddFAMILY, el.ddTYPE, el.ddORDER,
        el.cbENDEMIC, el.cbRELICT, el.cbEXTINCT].forEach(ctrl => {
         ctrl.addEventListener('change', applyFiltersAndRender);
       });
 
       el.btnClearFilters.addEventListener('click', () => {
         el.search.value = '';
-        [el.ddSTATUS, el.ddFAMILY, el.ddTYPE, el.ddORDER, el.ddDISTRIBUTION].forEach(sel => sel.value = '');
+        [el.ddSTATUS, el.ddFAMILY, el.ddTYPE, el.ddORDER].forEach(sel => sel.value = '');
         el.cbENDEMIC.checked = false;
         el.cbRELICT.checked  = false;
         el.cbEXTINCT.checked = false;
@@ -622,14 +567,12 @@
     }
 
     function clearSelection() {
-      // върни стил, ако има селектиран полигон
       if (state.selectedPolygonLayer) {
         try { state.selectedPolygonLayer.setStyle(BASE_STYLES[state.activePoly]); } catch(e){}
       }
       state.selectedPolygonLayer = null;
       state.selectedPolygonFeature = null;
 
-      // глобален набор за активния точков слой
       setGlobalExplodedFromActive();
       populateFilterDropdowns(state.explodedPoints);
 
@@ -647,7 +590,6 @@
       el.extinctLine.classList.toggle('hidden', isAnimals);
     }
 
-    /* ---------- Utils ---------- */
     function escapeHTML(v) {
       if (v===null || v===undefined) return '';
       return String(v)
