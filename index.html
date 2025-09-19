@@ -117,10 +117,10 @@
 
     .leaflet-interactive.hovered{ stroke-width:3px !important; filter:brightness(1.2); }
 
-    /* ---------- НОВ UI за ред в списъка ---------- */
+    /* ---------- Ред в списъка: Имена | Баджове | Бутон ---------- */
     .feature-item{
       display:grid;
-      grid-template-columns: 88px 1fr 120px;   /* релса за баджове | текст | бутон */
+      grid-template-columns: 1fr 88px 120px; /* (ляво) текст | (дясно) бадж-рейл | бутон */
       align-items:center;
       gap:10px;
       min-height:64px;
@@ -130,13 +130,13 @@
     }
     .feature-item:hover{ background:#faf6e8; }
 
-    /* Колона 1: релса за баджове */
+    /* Колона 2: релса за баджове (вдясно) */
     .feature-badges{
-      display:flex; gap:6px; flex-wrap:wrap; align-items:center; justify-content:flex-start;
+      display:flex; gap:6px; flex-wrap:wrap; align-items:center; justify-content:flex-end;
       min-height:24px;
     }
 
-    /* Колона 2: имена + мета */
+    /* Колона 1: имена + мета (вляво) */
     .feature-names{ display:flex; flex-direction:column; gap:2px; min-width:0; }
     .feature-names .name-bg{
       font-weight:700; line-height:1.2; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
@@ -609,24 +609,7 @@
         const row = document.createElement('div');
         row.className = 'feature-item';
 
-        /* 1) BADGE RAIL */
-        const rail = document.createElement('div');
-        rail.className = 'feature-badges';
-        if (isTruthy(p.ENDEMIC)) {
-          const b = document.createElement('span');
-          b.className = 'chip chip--endemic';
-          b.textContent = 'Ендемит';
-          rail.appendChild(b);
-        }
-        if (isTruthy(p.RELICT)) {
-          const b = document.createElement('span');
-          b.className = 'chip chip--relict';
-          b.textContent = 'Реликт';
-          rail.appendChild(b);
-        }
-        row.appendChild(rail);
-
-        /* 2) NAMES + META */
+        /* 1) ИМЕНА + МЕТА (ляво) */
         const names = document.createElement('div');
         names.className = 'feature-names';
 
@@ -649,8 +632,8 @@
         if (code){
           const st = document.createElement('span');
           st.className = `chip chip--st ${code}`;
-          st.textContent = p.STATUS;                 // показвай пълния текст
-          st.title = STATUS_TITLES[code] || p.STATUS; // tooltip
+          st.textContent = p.STATUS;
+          st.title = STATUS_TITLES[code] || p.STATUS;
           meta.appendChild(st);
         }
 
@@ -677,7 +660,24 @@
         names.appendChild(meta);
         row.appendChild(names);
 
-        /* 3) BUTTON */
+        /* 2) БАДЖОВЕ (вдясно, преди бутона) */
+        const rail = document.createElement('div');
+        rail.className = 'feature-badges';
+        if (isTruthy(p.ENDEMIC)) {
+          const b = document.createElement('span');
+          b.className = 'chip chip--endemic';
+          b.textContent = 'Ендемит';
+          rail.appendChild(b);
+        }
+        if (isTruthy(p.RELICT)) {
+          const b = document.createElement('span');
+          b.className = 'chip chip--relict';
+          b.textContent = 'Реликт';
+          rail.appendChild(b);
+        }
+        row.appendChild(rail);
+
+        /* 3) БУТОН (най-вдясно) */
         const linkHref = getFeatureLink(p);
         const btn = document.createElement('button');
         btn.className = 'link-btn';
