@@ -9,89 +9,72 @@
   <style>
     :root { --pad:12px; --gap:8px; --radius:10px; }
 
-    /* Глобално: никакви скролбарове на страницата */
+    /* Без хоризонтални скролове за страницата */
     *, *::before, *::after { box-sizing: border-box; }
-    html, body {
-      height:100%;
-      margin:0;
-      font-family:system-ui, Arial, sans-serif;
-      overflow: hidden;           /* без вертикален или хоризонтален скрол */
+    html, body{
+      height:100%; margin:0; font-family:system-ui, Arial, sans-serif;
+      overflow-x: hidden;
     }
 
-    /* Карта */
     #map { position:absolute; inset:0; }
 
-    /* Фиксиран сайдпанел (еднакъв при двата слоя) */
+    /* Фиксиран, еднакъв панел */
     #sidebar{
       position:absolute; top:10px; right:10px;
-      width:500px;                         /* фиксирана ширина */
-      max-width: calc(100vw - 20px);       /* безопасно за малки екрани */
-      height: 96vh;                        /* фиксирана височина */
+      width:500px; max-width:calc(100vw - 20px);
+      height:94vh;                           /* леко надписа на OSM */
       background:#fff; padding:var(--pad);
-      border-radius:var(--radius); box-shadow:0 6px 18px rgba(0,0,0,.25); z-index:9999;
+      border-radius:var(--radius); box-shadow:0 6px 18px rgba(0,0,0,.25);
+      z-index:9999;
 
-      display:flex; flex-direction:column; /* стабилен вътрешен layout */
-      overflow: hidden;                    /* никакъв вътрешен скрол */
+      display:flex; flex-direction:column;
+      overflow:hidden;                        /* без скрол на панела */
     }
     #sidebar h3{
       margin:0 0 var(--gap) 0;
-      text-align:center;                   /* центрирано заглавие */
+      text-align:center;                      /* центрирано заглавие */
     }
 
-    .controls{
-      flex: 0 0 auto;                      /* блокът с контроли е с естествена височина */
-      overflow: hidden;                     /* отрязва евентуално преливане */
-    }
+    .controls{ flex:0 0 auto; overflow:hidden; }
     .controls section{ margin-bottom:10px; }
     .controls label{ display:block; margin:4px 0; cursor:pointer; }
 
-    /* Резултатна част – фиксиран блок, без скрол */
-    #count{ margin:6px 0; font-weight:600; flex: 0 0 auto; }
+    #count{ margin:6px 0; font-weight:600; flex:0 0 auto; }
+
+    /* Списъкът – единственият със вертикален скрол */
     #list{
-      border-top:1px solid #ddd;
-      margin-top:6px;
-      height:calc(50vh);
-      overflow-y:auto;      /* вертикален скрол само за списъка */
-      overflow-x:hidden;    /* без хоризонтален */
-      flex:1 1 auto;        /* запълва останалото пространство */
+      border-top:1px solid #ddd; margin-top:6px;
+      flex:1 1 auto;
+      min-height:0;              /* важно при flex контейнер */
+      overflow-y:auto;           /* вертикален скрол тук */
+      overflow-x:hidden;
     }
 
-
-    /* Гридове без хор. преливане */
+    /* Гридове без преливане */
     .row{
       display:grid;
       grid-template-columns: minmax(0,1fr) minmax(0,1fr);
       gap:var(--gap);
     }
-    .row > * { min-width:0; }             /* ключово срещу хор. скрол */
+    .row > *{ min-width:0; }
 
-    /* Форм елементи – в границите на панела */
     input[type="text"], select{
       width:100%; max-width:100%; display:block;
       padding:8px; border:1px solid #ccc; border-radius:6px; font-size:14px;
-      min-width:0;                        /* позволи свиване в grid */
+      min-width:0;
     }
-    /* Дълги опции да не раздуват селекта */
-    #sidebar select{
-      text-overflow: ellipsis;
-      white-space: nowrap;
-      overflow: hidden;
-    }
+    #sidebar select{ text-overflow:ellipsis; white-space:nowrap; overflow:hidden; }
 
-    label, .feature-item, .feature-row > div {
-      overflow-wrap:anywhere;
-      word-break:break-word;
+    label, .feature-item, .feature-row > div{
+      overflow-wrap:anywhere; word-break:break-word;
     }
 
     .checkline{ display:flex; align-items:center; gap:8px; }
 
     /* Бутони – центрирани и равномерни */
     .btnbar{
-      display:flex;
-      justify-content: space-evenly;
-      align-items:center;
-      gap: var(--gap);
-      margin:6px 0 10px;
+      display:flex; justify-content:space-evenly; align-items:center;
+      gap:var(--gap); margin:6px 0 10px;
     }
     .btnbar button{
       padding:8px 10px; border-radius:8px; border:1px solid #ccc;
@@ -121,13 +104,10 @@
       font-size:12px; color:#333; box-shadow:0 1px 3px rgba(0,0,0,.15);
     }
 
-    /* Hover полигони */
     .leaflet-interactive.hovered{ stroke-width:3px !important; filter:brightness(1.2); }
 
-    /* Ред с бутон линк */
-    .feature-row{
-      display:grid; grid-template-columns:1fr 120px; align-items:center; gap:8px;
-    }
+    /* Ред с бутон линк в елемент на списъка */
+    .feature-row{ display:grid; grid-template-columns:1fr 120px; align-items:center; gap:8px; }
     .link-btn{
       width:120px; text-align:center; padding:6px 8px; font-size:12px;
       border-radius:6px; border:1px solid #ccc; background:#f4f6ff; cursor:pointer; white-space:nowrap;
@@ -149,7 +129,6 @@
       </section>
       <section>
         <strong>Книги</strong>
-        <!-- Том I отгоре -->
         <label><input type="radio" name="points" value="plants"> Том I. Растения и гъби</label>
         <label><input type="radio" name="points" value="animals" checked> Том II. Животни</label>
       </section>
@@ -275,7 +254,7 @@
       setGlobalExplodedFromActive();
       populateFilterDropdowns(state.explodedPoints);
 
-      /* Лек авто-зуум към morph_units + асиметричен десен padding според панела */
+      /* Начален fit по morph с асиметричен десен padding */
       fitToMorphBG();
 
       wireControls();
@@ -287,17 +266,12 @@
       try {
         const bounds = layers.poly.morph?.getBounds();
         if (!bounds || !bounds.isValid()) return;
-
-        // увери се, че Leaflet знае реалния размер
         map.invalidateSize();
 
-        // измери ширини
         const sidebar = document.getElementById('sidebar');
         const mapEl = document.getElementById('map');
         const sidebarW = sidebar ? sidebar.getBoundingClientRect().width : 0;
         const mapW = mapEl ? mapEl.clientWidth : window.innerWidth;
-
-        // ограничение ако панелът е твърде голям
         const rightPad = Math.min(Math.round(sidebarW), Math.round(mapW * 0.45));
 
         map.fitBounds(bounds, {
@@ -305,12 +279,9 @@
           paddingBottomRight: [30 + rightPad, 30],
           maxZoom: 8
         });
-      } catch (e) {
-        console.warn('Неуспешно начално побиране:', e);
-      }
+      } catch (e) { console.warn('Неуспешно начално побиране:', e); }
     }
 
-    /* Debounced resize – преизчислява падинга при промяна */
     (function () {
       let t;
       window.addEventListener('resize', () => {
@@ -346,16 +317,13 @@
       if (state.selectedPolygonLayer) {
         try { state.selectedPolygonLayer.setStyle(BASE_STYLES[state.activePoly]); } catch(e){}
       }
-
       state.selectedPolygonLayer = layer;
       state.selectedPolygonFeature = feature;
       layer.setStyle(SELECTED_STYLES[state.activePoly]);
 
       const exploded = explodeMultiPoints(layers.data[state.activePts]);
       const inside = [];
-      for (const pt of exploded) {
-        if (turf.booleanPointInPolygon(pt, feature)) inside.push(pt);
-      }
+      for (const pt of exploded) if (turf.booleanPointInPolygon(pt, feature)) inside.push(pt);
       state.explodedPoints = inside;
 
       populateFilterDropdowns(inside);
@@ -377,10 +345,7 @@
         return opt;
       };
       sel.appendChild(mk('', firstLabel || '(всички)'));
-      for (const v of values) {
-        if (v === '') continue;
-        sel.appendChild(mk(v, v));
-      }
+      for (const v of values) { if (v !== '') sel.appendChild(mk(v, v)); }
       if ([...sel.options].some(o=>o.value===current)) sel.value = current;
     }
 
@@ -426,6 +391,39 @@
       try { new URL(href); return href; } catch { return null; }
     }
 
+    /* ----------- НОВО: помощни за селекция по вид ----------- */
+    function boundsForMarkers(markers){
+      if (!markers || !markers.length) return null;
+      const latLngs = markers.map(m => m.getLatLng());
+      return L.latLngBounds(latLngs);
+    }
+
+    function filterMarkersToSelectedSpecies(){
+      // изчисти слоя и подсветките
+      state.pointMarkerLayer.clearLayers();
+      for (const m of state.currentMarkers) m._icon?.classList.remove('highlight');
+
+      if (!state.selectedSpeciesKey){
+        // върни всички текущо филтрирани точки
+        for (const m of state.currentMarkers) state.pointMarkerLayer.addLayer(m);
+        // възстанови брояча
+        const speciesCount = new Set(state.filteredPoints.map(f => speciesKey(f.properties))).size;
+        document.getElementById('count').textContent =
+          `Намерени видове: ${speciesCount} (точки: ${state.filteredPoints.length})`;
+        return;
+      }
+
+      // покажи само точките на избрания вид
+      const group = state.currentMarkersByKey.get(state.selectedSpeciesKey) || [];
+      for (const m of group){
+        state.pointMarkerLayer.addLayer(m);
+        m._icon?.classList.add('highlight');
+      }
+      document.getElementById('count').textContent =
+        `Намерени видове: 1 (точки: ${group.length})`;
+    }
+
+    /* ---------- Основен филтър и рендер ---------- */
     function applyFiltersAndRender() {
       if (!state.selectedPolygonFeature && (!state.explodedPoints || !state.explodedPoints.length)) {
         setGlobalExplodedFromActive();
@@ -460,7 +458,6 @@
           if (sel.TYPE  && String(p.TYPE)  !== sel.TYPE)  continue;
           if (sel.ORDER && String(p.ORDER) !== sel.ORDER) continue;
         }
-
         if (sel.ENDEMIC && !isTruthy(p.ENDEMIC)) continue;
         if (sel.RELICT  && !isTruthy(p.RELICT))  continue;
 
@@ -492,6 +489,7 @@
         return;
       }
 
+      // Маркери
       for (const f of features) {
         const [lng, lat] = f.geometry.coordinates;
         const p = f.properties || {};
@@ -522,6 +520,7 @@
         return an.localeCompare(bn,'bg',{sensitivity:'base'});
       });
 
+      // Списък
       for (const item of uniqueList) {
         const p = item.props;
         const div = document.createElement('div');
@@ -566,17 +565,30 @@
         div.appendChild(topRow);
         div.appendChild(meta);
 
+        // ***** НОВО: клик по ред → филтър + плавен зум *****
         div.onclick = () => {
           state.selectedSpeciesKey = item.key;
-          for (const m of state.currentMarkers) { m._icon?.classList.remove('highlight'); }
+          filterMarkersToSelectedSpecies();
+
           const group = state.currentMarkersByKey.get(item.key) || [];
-          for (const m of group) { m._icon?.classList.add('highlight'); }
+          if (!group.length) return;
+          const b = boundsForMarkers(group);
+
+          if (group.length === 1) {
+            map.flyTo(group[0].getLatLng(), Math.min(map.getMaxZoom(), 12), { duration: 0.8 });
+          } else {
+            map.flyToBounds(b, { padding: [40,40], maxZoom: 12, duration: 0.8 });
+          }
         };
 
         el.list.appendChild(div);
       }
 
+      // Обнови брояча (по подразбиране – всички филтрирани)
       el.count.textContent = `Намерени видове: ${uniqueList.length} (точки: ${totalPoints})`;
+
+      // Ако има активна селекция по вид (напр. след re-render), приложи филтъра
+      if (state.selectedSpeciesKey) filterMarkersToSelectedSpecies();
     }
 
     function openPopupAt(latlng, props) {
@@ -622,13 +634,17 @@
           }
           state.activePoly = r.value;
           map.addLayer(layers.poly[state.activePoly]);
-          clearSelection();
+
+          // Нулирай селекцията по вид
+          state.selectedSpeciesKey = null;
+          clearSelection(); // и към глобален режим
         });
       });
 
       document.querySelectorAll('input[name="points"]').forEach(r => {
         r.addEventListener('change', () => {
           state.activePts = r.value;
+          state.selectedSpeciesKey = null; // нулирай при смяна на книга
           refreshFilterVisibility();
           if (state.selectedPolygonFeature) {
             onPolygonClick(state.selectedPolygonFeature, state.selectedPolygonLayer);
@@ -643,21 +659,34 @@
       let t;
       el.search.addEventListener('input', () => {
         clearTimeout(t);
-        t = setTimeout(applyFiltersAndRender, 300);
+        t = setTimeout(() => { state.selectedSpeciesKey = null; applyFiltersAndRender(); }, 300);
       });
 
       [el.ddSTATUS, el.ddFAMILY, el.ddTYPE, el.ddORDER, el.cbENDEMIC, el.cbRELICT]
-        .forEach(ctrl => ctrl.addEventListener('change', applyFiltersAndRender));
+        .forEach(ctrl => {
+          ctrl.addEventListener('change', () => { state.selectedSpeciesKey = null; applyFiltersAndRender(); });
+        });
 
       el.btnClearFilters.addEventListener('click', () => {
         el.search.value = '';
         [el.ddSTATUS, el.ddFAMILY, el.ddTYPE, el.ddORDER].forEach(sel => sel.value = '');
         el.cbENDEMIC.checked = false;
         el.cbRELICT.checked  = false;
+        state.selectedSpeciesKey = null;
         applyFiltersAndRender();
       });
 
-      el.btnClearSel.addEventListener('click', clearSelection);
+      el.btnClearSel.addEventListener('click', () => {
+        // изчисти селекцията по вид и полигон и върни изгледа
+        state.selectedSpeciesKey = null;
+        clearSelection();
+
+        if (state.selectedPolygonLayer) {
+          map.fitBounds(state.selectedPolygonLayer.getBounds(), { padding: [30,30], maxZoom: 8 });
+        } else {
+          fitToMorphBG();
+        }
+      });
     }
 
     function clearSelection() {
@@ -672,7 +701,6 @@
 
       state.filteredPoints = [];
       state.pointMarkerLayer.clearLayers();
-      state.selectedSpeciesKey = null;
       for (const m of state.currentMarkers) { m._icon?.classList.remove('highlight'); }
       el.list.innerHTML = '';
       el.count.textContent = 'Въведете търсене или изберете филтър.';
@@ -695,7 +723,3 @@
   </script>
 </body>
 </html>
-
-
-
-
