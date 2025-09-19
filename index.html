@@ -7,9 +7,28 @@
   <!-- Leaflet -->
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
   <style>
-    :root { --pad:12px; --gap:8px; --radius:10px; }
+    :root{
+      --pad:12px; --gap:8px; --radius:10px;
 
-    /* Без хоризонтални скролове за страницата */
+      /* Badge / chip styling */
+      --chip-radius: 999px;
+      --chip-px: 8px; --chip-py: 3px;
+
+      /* Endemic / Relict */
+      --gold-bg:#F7E9B5; --gold-bd:#E3C676; --gold-tx:#7A5C00;
+      --purp-bg:#E8D9F7; --purp-bd:#C3ACE6; --purp-tx:#4B2E83;
+
+      /* Status scale (soft) */
+      --st-lc-bg:#E6F4EA; --st-lc-bd:#B7E1C1; --st-lc-tx:#1B5E20; /* LC */
+      --st-nt-bg:#FFF8E1; --st-nt-bd:#FFE39B; --st-nt-tx:#8C6D1F; /* NT */
+      --st-vu-bg:#FFF3CD; --st-vu-bd:#FFE08A; --st-vu-tx:#7A5E00; /* VU */
+      --st-en-bg:#FFE0B2; --st-en-bd:#FFCC80; --st-en-tx:#8B3E00; /* EN */
+      --st-cr-bg:#FFCDD2; --st-cr-bd:#F5A3AB; --st-cr-tx:#B71C1C; /* CR */
+      --st-dd-bg:#E3F2FD; --st-dd-bd:#BBDEFB; --st-dd-tx:#0D47A1; /* DD */
+      --st-ex-bg:#111111; --st-ex-bd:#000000; --st-ex-tx:#FFFFFF; /* EX */
+    }
+
+    /* Без хоризонтален скрол на страницата */
     *, *::before, *::after { box-sizing: border-box; }
     html, body{
       height:100%; margin:0; font-family:system-ui, Arial, sans-serif;
@@ -18,11 +37,11 @@
 
     #map { position:absolute; inset:0; }
 
-    /* Фиксиран, еднакъв панел */
+    /* Фиксиран панел; скрол само в списъка */
     #sidebar{
       position:absolute; top:10px; right:10px;
       width:500px; max-width:calc(100vw - 20px);
-      height:94vh;                           /* леко надписа на OSM */
+      height:94vh;                           /* леко над OSM надписа */
       background:#fff; padding:var(--pad);
       border-radius:var(--radius); box-shadow:0 6px 18px rgba(0,0,0,.25);
       z-index:9999;
@@ -32,7 +51,7 @@
     }
     #sidebar h3{
       margin:0 0 var(--gap) 0;
-      text-align:center;                      /* центрирано заглавие */
+      text-align:center;
     }
 
     .controls{ flex:0 0 auto; overflow:hidden; }
@@ -41,13 +60,11 @@
 
     #count{ margin:6px 0; font-weight:600; flex:0 0 auto; }
 
-    /* Списъкът – единственият със вертикален скрол */
+    /* Списъкът – вертикален скрол тук */
     #list{
       border-top:1px solid #ddd; margin-top:6px;
-      flex:1 1 auto;
-      min-height:0;              /* важно при flex контейнер */
-      overflow-y:auto;           /* вертикален скрол тук */
-      overflow-x:hidden;
+      flex:1 1 auto; min-height:0;
+      overflow-y:auto; overflow-x:hidden;
     }
 
     /* Гридове без преливане */
@@ -65,9 +82,7 @@
     }
     #sidebar select{ text-overflow:ellipsis; white-space:nowrap; overflow:hidden; }
 
-    label, .feature-item, .feature-row > div{
-      overflow-wrap:anywhere; word-break:break-word;
-    }
+    label{ overflow-wrap:anywhere; word-break:break-word; }
 
     .checkline{ display:flex; align-items:center; gap:8px; }
 
@@ -82,10 +97,6 @@
     }
     .btnbar button:hover{ background:#eee; }
 
-    .feature-item{ cursor:pointer; padding:10px 6px; border-bottom:1px solid #eee; }
-    .feature-item:hover{ background:#faf6e8; }
-
-    .badge{ display:inline-block; font-size:11px; padding:2px 6px; border-radius:999px; background:#eef; border:1px solid #ccd; margin-left:6px; }
     .legend{ font-size:12px; color:#666; }
     .muted{ color:#666; }
     .hidden{ display:none !important; }
@@ -106,8 +117,61 @@
 
     .leaflet-interactive.hovered{ stroke-width:3px !important; filter:brightness(1.2); }
 
-    /* Ред с бутон линк в елемент на списъка */
-    .feature-row{ display:grid; grid-template-columns:1fr 120px; align-items:center; gap:8px; }
+    /* ---------- НОВ UI за ред в списъка ---------- */
+    .feature-item{
+      display:grid;
+      grid-template-columns: 88px 1fr 120px;   /* релса за баджове | текст | бутон */
+      align-items:center;
+      gap:10px;
+      min-height:64px;
+      padding:10px 8px;
+      border-bottom:1px solid #eee;
+      cursor:pointer;
+    }
+    .feature-item:hover{ background:#faf6e8; }
+
+    /* Колона 1: релса за баджове */
+    .feature-badges{
+      display:flex; gap:6px; flex-wrap:wrap; align-items:center; justify-content:flex-start;
+      min-height:24px;
+    }
+
+    /* Колона 2: имена + мета */
+    .feature-names{ display:flex; flex-direction:column; gap:2px; min-width:0; }
+    .feature-names .name-bg{
+      font-weight:700; line-height:1.2; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
+    }
+    .feature-names .name-la{
+      font-style:italic; font-size:0.875rem; opacity:.85; line-height:1.1;
+      overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
+    }
+    .feature-meta{
+      margin-top:4px; font-size:12px; color:#666; display:flex; gap:8px; align-items:center; flex-wrap:wrap;
+    }
+
+    /* Чипове / баджове */
+    .chip{
+      display:inline-flex; align-items:center; gap:6px;
+      padding: var(--chip-py) var(--chip-px);
+      border-radius: var(--chip-radius);
+      border:1px solid transparent;
+      font-size:11px; line-height:1;
+      white-space:nowrap;
+    }
+    .chip--endemic{ background:var(--gold-bg); border-color:var(--gold-bd); color:var(--gold-tx); }
+    .chip--relict{  background:var(--purp-bg); border-color:var(--purp-bd); color:var(--purp-tx); }
+
+    /* Статус чипове */
+    .chip--st{ font-weight:600; }
+    .chip--st.lc{ background:var(--st-lc-bg); border-color:var(--st-lc-bd); color:var(--st-lc-tx); }
+    .chip--st.nt{ background:var(--st-nt-bg); border-color:var(--st-nt-bd); color:var(--st-nt-tx); }
+    .chip--st.vu{ background:var(--st-vu-bg); border-color:var(--st-vu-bd); color:var(--st-vu-tx); }
+    .chip--st.en{ background:var(--st-en-bg); border-color:var(--st-en-bd); color:var(--st-en-tx); }
+    .chip--st.cr{ background:var(--st-cr-bg); border-color:var(--st-cr-bd); color:var(--st-cr-tx); }
+    .chip--st.dd{ background:var(--st-dd-bg); border-color:var(--st-dd-bd); color:var(--st-dd-tx); }
+    .chip--st.ex{ background:var(--st-ex-bg); border-color:var(--st-ex-bd); color:var(--st-ex-tx); }
+
+    /* Десният бутон */
     .link-btn{
       width:120px; text-align:center; padding:6px 8px; font-size:12px;
       border-radius:6px; border:1px solid #ccc; background:#f4f6ff; cursor:pointer; white-space:nowrap;
@@ -391,7 +455,30 @@
       try { new URL(href); return href; } catch { return null; }
     }
 
-    /* ----------- НОВО: помощни за селекция по вид ----------- */
+    /* ---------- Статус мапване + tooltip ---------- */
+    const STATUS_TITLES = {
+      lc:'LC — Незастрашен',
+      nt:'NT — Почти застрашен',
+      vu:'VU — Уязвим',
+      en:'EN — Застрашен',
+      cr:'CR — Критично застрашен',
+      dd:'DD — Недостатъчно данни',
+      ex:'EX — Изчезнал'
+    };
+    function statusToCode(raw){
+      if (!raw) return null;
+      const s = String(raw).toLowerCase().trim();
+      if (/(незастрашен|least concern|^lc\b)/.test(s)) return 'lc';
+      if (/(почти застрашен|near threatened|^nt\b)/.test(s)) return 'nt';
+      if (/(уязвим|vulnerable|^vu\b)/.test(s)) return 'vu';
+      if (/(застрашен|endangered|^en\b)/.test(s)) return 'en';
+      if (/(критично|critically endangered|^cr\b)/.test(s)) return 'cr';
+      if (/(недостатъчно данни|data deficient|^dd\b)/.test(s)) return 'dd';
+      if (/(изчезнал|extinct|^ex\b)/.test(s)) return 'ex';
+      return null;
+    }
+
+    /* ----------- Селекция по вид: помощни ----------- */
     function boundsForMarkers(markers){
       if (!markers || !markers.length) return null;
       const latLngs = markers.map(m => m.getLatLng());
@@ -399,21 +486,16 @@
     }
 
     function filterMarkersToSelectedSpecies(){
-      // изчисти слоя и подсветките
       state.pointMarkerLayer.clearLayers();
       for (const m of state.currentMarkers) m._icon?.classList.remove('highlight');
 
       if (!state.selectedSpeciesKey){
-        // върни всички текущо филтрирани точки
         for (const m of state.currentMarkers) state.pointMarkerLayer.addLayer(m);
-        // възстанови брояча
         const speciesCount = new Set(state.filteredPoints.map(f => speciesKey(f.properties))).size;
         document.getElementById('count').textContent =
           `Намерени видове: ${speciesCount} (точки: ${state.filteredPoints.length})`;
         return;
       }
-
-      // покажи само точките на избрания вид
       const group = state.currentMarkersByKey.get(state.selectedSpeciesKey) || [];
       for (const m of group){
         state.pointMarkerLayer.addLayer(m);
@@ -523,22 +605,79 @@
       // Списък
       for (const item of uniqueList) {
         const p = item.props;
-        const div = document.createElement('div');
-        div.className = 'feature-item';
 
-        const main = `${p.BG_NAME || ''} ${p.LATIN_NAME ? `(${p.LATIN_NAME})` : ''}`;
-        const badges = [
-          p.ENDEMIC && isTruthy(p.ENDEMIC) ? '<span class="badge">Ендемит</span>' : '',
-          p.RELICT  && isTruthy(p.RELICT)  ? '<span class="badge">Реликт</span>'  : ''
-        ].join(' ');
+        const row = document.createElement('div');
+        row.className = 'feature-item';
 
-        const topRow = document.createElement('div');
-        topRow.className = 'feature-row';
+        /* 1) BADGE RAIL */
+        const rail = document.createElement('div');
+        rail.className = 'feature-badges';
+        if (isTruthy(p.ENDEMIC)) {
+          const b = document.createElement('span');
+          b.className = 'chip chip--endemic';
+          b.textContent = 'Ендемит';
+          rail.appendChild(b);
+        }
+        if (isTruthy(p.RELICT)) {
+          const b = document.createElement('span');
+          b.className = 'chip chip--relict';
+          b.textContent = 'Реликт';
+          rail.appendChild(b);
+        }
+        row.appendChild(rail);
 
-        const titleSpan = document.createElement('div');
-        titleSpan.innerHTML = `${escapeHTML(main)} ${badges}`;
-        topRow.appendChild(titleSpan);
+        /* 2) NAMES + META */
+        const names = document.createElement('div');
+        names.className = 'feature-names';
 
+        const nameBG = document.createElement('div');
+        nameBG.className = 'name-bg';
+        nameBG.textContent = p.BG_NAME || '';
+
+        const nameLA = document.createElement('div');
+        nameLA.className = 'name-la';
+        nameLA.textContent = p.LATIN_NAME ? `(${p.LATIN_NAME})` : '';
+
+        names.appendChild(nameBG);
+        names.appendChild(nameLA);
+
+        const meta = document.createElement('div');
+        meta.className = 'feature-meta';
+
+        // Статус-чип с tooltip
+        const code = statusToCode(p.STATUS);
+        if (code){
+          const st = document.createElement('span');
+          st.className = `chip chip--st ${code}`;
+          st.textContent = p.STATUS;                 // показвай пълния текст
+          st.title = STATUS_TITLES[code] || p.STATUS; // tooltip
+          meta.appendChild(st);
+        }
+
+        if (p.FAMILY){
+          const fam = document.createElement('span');
+          fam.textContent = p.FAMILY;
+          meta.appendChild(fam);
+        }
+        if (p.TYPE && state.activePts === 'animals'){
+          const typ = document.createElement('span');
+          typ.textContent = p.TYPE;
+          meta.appendChild(typ);
+        }
+        if (typeof item.count === 'number'){
+          const cnt = document.createElement('span');
+          cnt.className = 'chip';
+          cnt.style.background = '#eef';
+          cnt.style.borderColor = '#ccd';
+          cnt.title = 'Брой точки за вида';
+          cnt.textContent = item.count;
+          meta.appendChild(cnt);
+        }
+
+        names.appendChild(meta);
+        row.appendChild(names);
+
+        /* 3) BUTTON */
         const linkHref = getFeatureLink(p);
         const btn = document.createElement('button');
         btn.className = 'link-btn';
@@ -549,45 +688,31 @@
           ev.stopPropagation();
           if (linkHref) window.open(linkHref, '_blank', 'noopener');
         });
-        topRow.appendChild(btn);
+        row.appendChild(btn);
 
-        const meta = document.createElement('div');
-        meta.className = 'muted';
-        meta.style.fontSize = '12px';
-        meta.textContent = [p.STATUS, p.TYPE, p.FAMILY].filter(Boolean).join(' · ');
-        const countBadge = document.createElement('span');
-        countBadge.className = 'badge';
-        countBadge.title = 'Брой точки за този вид';
-        countBadge.textContent = item.count;
-        meta.appendChild(document.createTextNode(' '));
-        meta.appendChild(countBadge);
-
-        div.appendChild(topRow);
-        div.appendChild(meta);
-
-        // ***** НОВО: клик по ред → филтър + плавен зум *****
-        div.onclick = () => {
+        // КЛИК ПО РЕД → филтър + плавен зум
+        row.onclick = () => {
           state.selectedSpeciesKey = item.key;
           filterMarkersToSelectedSpecies();
 
           const group = state.currentMarkersByKey.get(item.key) || [];
           if (!group.length) return;
-          const b = boundsForMarkers(group);
+          const bnds = boundsForMarkers(group);
 
           if (group.length === 1) {
             map.flyTo(group[0].getLatLng(), Math.min(map.getMaxZoom(), 12), { duration: 0.8 });
           } else {
-            map.flyToBounds(b, { padding: [40,40], maxZoom: 12, duration: 0.8 });
+            map.flyToBounds(bnds, { padding: [40,40], maxZoom: 12, duration: 0.8 });
           }
         };
 
-        el.list.appendChild(div);
+        el.list.appendChild(row);
       }
 
       // Обнови брояча (по подразбиране – всички филтрирани)
       el.count.textContent = `Намерени видове: ${uniqueList.length} (точки: ${totalPoints})`;
 
-      // Ако има активна селекция по вид (напр. след re-render), приложи филтъра
+      // Ако има активна селекция по вид, приложи филтъра
       if (state.selectedSpeciesKey) filterMarkersToSelectedSpecies();
     }
 
@@ -637,7 +762,7 @@
 
           // Нулирай селекцията по вид
           state.selectedSpeciesKey = null;
-          clearSelection(); // и към глобален режим
+          clearSelection();
         });
       });
 
@@ -677,7 +802,6 @@
       });
 
       el.btnClearSel.addEventListener('click', () => {
-        // изчисти селекцията по вид и полигон и върни изгледа
         state.selectedSpeciesKey = null;
         clearSelection();
 
