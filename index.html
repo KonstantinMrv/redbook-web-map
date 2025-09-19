@@ -34,8 +34,8 @@
     /* Фиксирани размери на списъка */
     #list {
       border-top: 1px solid #ddd; margin-top: 6px;
-      height: 50vh;            /* фиксирана височина ~ половин екран */
-      overflow: auto;          /* скрол в списъка */
+      height: 50vh;
+      overflow: auto;
     }
 
     .feature-item { cursor:pointer; padding:10px 6px; border-bottom:1px solid #eee; }
@@ -67,15 +67,15 @@
     /* По-изразено hover на полигони */
     .leaflet-interactive.hovered { stroke-width: 3px !important; filter: brightness(1.2); }
 
-    /* Бутон за статия в списъка — фиксирана ширина и стабилен ред */
+    /* Ред в списъка: фиксирана ширина на бутона */
     .feature-row {
       display: grid;
-      grid-template-columns: 1fr 120px;  /* ляво: текст, дясно: бутон с фиксирана ширина */
+      grid-template-columns: 1fr 120px;
       align-items: center;
       gap: 8px;
     }
     .link-btn {
-      width: 120px;            /* фиксирана ширина */
+      width: 120px;
       text-align: center;
       padding: 6px 8px;
       font-size: 12px;
@@ -83,7 +83,7 @@
       border: 1px solid #ccc;
       background: #f4f6ff;
       cursor: pointer;
-      white-space: nowrap;     /* не позволява пренасяне */
+      white-space: nowrap;
     }
     .link-btn:hover { background: #e9edff; }
     .link-btn:disabled { opacity: .5; cursor: not-allowed; }
@@ -140,6 +140,9 @@
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@turf/turf@6/turf.min.js"></script>
 <script>
+/* Лесен репортер за грешки (конзолата ще покаже съобщенията) */
+window.addEventListener('error', function(e){ try{ console.error('JS Error:', e.message, 'at', e.filename + ':' + e.lineno); }catch(_){}});
+
 /* ---------- CONFIG: file paths ---------- */
 const MORPH_GEOJSON_URL = 'data/morph_units.geojson';
 const LANDSCAPE_GEOJSON_URL = 'data/landscape_zoning.geojson';
@@ -151,7 +154,7 @@ const map = L.map('map', { zoomControl: true }).setView([42.75, 25.3], 7);
 L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 20, attribution: '&copy; OpenStreetMap' }).addTo(map);
 
 /* ---------- STATE ---------- */
-const state = {
+var state = {
   activePoly: 'morph',   // 'morph' | 'land'
   activePts:  'animals', // 'animals' | 'plants'
   selectedPolygonFeature: null,
@@ -166,7 +169,7 @@ const state = {
 };
 
 /* ---------- UI elements ---------- */
-const el = {
+var el = {
   search: document.getElementById('searchBox'),
   ddSTATUS: document.getElementById('ddSTATUS'),
   ddFAMILY: document.getElementById('ddFAMILY'),
@@ -185,58 +188,60 @@ const el = {
 };
 
 /* ---------- Layers ---------- */
-const layers = { poly: {}, data: {} };
+var layers = { poly: {}, data: {} };
 
 /* Стилове за полигони: базови и „светещи“ при селекция */
-const BASE_STYLES = {
+var BASE_STYLES = {
   morph: { color: '#B08D57', weight: 1, fillColor: '#F3E5AB', fillOpacity: 0.65 },
   land:  { color: '#5A8F68', weight: 1, fillColor: '#CDE8B8', fillOpacity: 0.65 }
 };
-const SELECTED_STYLES = {
-  morph: { color: '#B08D57', weight: 4, fillColor: '#FFF4C9', fillOpacity: 0.8 }, // по-светло бежово
-  land:  { color: '#5A8F68', weight: 4, fillColor: '#E9F6D8', fillOpacity: 0.8 }  // по-светло зелено
+var SELECTED_STYLES = {
+  morph: { color: '#B08D57', weight: 4, fillColor: '#FFF4C9', fillOpacity: 0.8 },
+  land:  { color: '#5A8F68', weight: 4, fillColor: '#E9F6D8', fillOpacity: 0.8 }
 };
 
 /* Label helper (NAME) */
-function getPolyLabel(props = {}) { return props.NAME || ''; }
+function getPolyLabel(props) { props = props||{}; return props.NAME || ''; }
 
 /* Load data and build layers */
 Promise.all([
-  fetch(MORPH_GEOJSON_URL).then(r=>r.json()),
-  fetch(LANDSCAPE_GEOJSON_URL).then(r=>r.json()),
-  fetch(ANIMALS_GEOJSON_URL).then(r=>r.json()),
-  fetch(PLANTS_FUNGI_GEOJSON_URL).then(r=>r.json())
-]).then(([morph, land, animals, plants]) => {
+  fetch(MORPH_GEOJSON_URL).then(function(r){return r.json()}),
+  fetch(LANDSCAPE_GEOJSON_URL).then(function(r){return r.json()}),
+  fetch(ANIMALS_GEOJSON_URL).then(function(r){return r.json()}),
+  fetch(PLANTS_FUNGI_GEOJSON_URL).then(function(r){return r.json()})
+]).then(function(arr){
+  var morph = arr[0], land = arr[1], animals = arr[2], plants = arr[3];
+
   layers.poly.morph = L.geoJSON(morph, {
     style: BASE_STYLES.morph,
-    onEachFeature: (f, l) => {
+    onEachFeature: function(f, l) {
       l.on({
-        mouseover: e => { if (e?.target?._path) e.target._path.classList.add('hovered'); },
-        mouseout:  e => { if (e?.target?._path) e.target._path.classList.remove('hovered'); },
-        click:     () => onPolygonClick(f, l)
+        mouseover: function(e){ try{ if (e && e.target && e.target._path) e.target._path.classList.add('hovered'); }catch(_){ } },
+        mouseout:  function(e){ try{ if (e && e.target && e.target._path) e.target._path.classList.remove('hovered'); }catch(_){ } },
+        click:     function(){ onPolygonClick(f, l); }
       });
-      const lbl = getPolyLabel(f.properties);
+      var lbl = getPolyLabel(f.properties);
       if (lbl) l.bindTooltip(lbl, { permanent: true, direction: 'center', className: 'poly-label' });
     }
   }).addTo(map);
 
   layers.poly.land = L.geoJSON(land, {
     style: BASE_STYLES.land,
-    onEachFeature: (f, l) => {
+    onEachFeature: function(f, l) {
       l.on({
-        mouseover: e => { if (e?.target?._path) e.target._path.classList.add('hovered'); },
-        mouseout:  e => { if (e?.target?._path) e.target._path.classList.remove('hovered'); },
-        click:     () => onPolygonClick(f, l)
+        mouseover: function(e){ try{ if (e && e.target && e.target._path) e.target._path.classList.add('hovered'); }catch(_){ } },
+        mouseout:  function(e){ try{ if (e && e.target && e.target._path) e.target._path.classList.remove('hovered'); }catch(_){ } },
+        click:     function(){ onPolygonClick(f, l); }
       });
-      const lbl = getPolyLabel(f.properties);
+      var lbl = getPolyLabel(f.properties);
       if (lbl) l.bindTooltip(lbl, { permanent: true, direction: 'center', className: 'poly-label' });
     }
-  }); // не е добавен по начало
+  }); // not added by default
 
   layers.data.animals = animals;
-  layers.data.plants = plants;
+  layers.data.plants  = plants;
 
-  // първоначално: глобален набор за активния точков слой (за глобално търсене)
+  // първоначално: глобален набор за активния точков слой
   setGlobalExplodedFromActive();
   populateFilterDropdowns(state.explodedPoints);
 
@@ -248,7 +253,7 @@ Promise.all([
 
 /* ---------- Helpers ---------- */
 function setGlobalExplodedFromActive() {
-  const fc = layers.data[state.activePts];
+  var fc = layers.data[state.activePts];
   state.explodedPoints = explodeMultiPoints(fc);
 }
 
@@ -268,9 +273,10 @@ function onPolygonClick(feature, layer) {
   // НЕ ЗУУМВАМЕ към полигона
 
   // Explode -> only inside
-  const exploded = explodeMultiPoints(layers.data[state.activePts]);
-  const inside = [];
-  for (const pt of exploded) {
+  var exploded = explodeMultiPoints(layers.data[state.activePts]);
+  var inside = [];
+  for (var i=0;i<exploded.length;i++){
+    var pt = exploded[i];
     if (turf.booleanPointInPolygon(pt, feature)) inside.push(pt);
   }
   state.explodedPoints = inside;
@@ -281,90 +287,111 @@ function onPolygonClick(feature, layer) {
 
 /* ---------- MultiPoint -> Point[] ---------- */
 function explodeMultiPoints(fc) {
-  const out = [];
-  for (const f of fc.features) {
+  var out = [];
+  if (!fc || !fc.features) return out;
+  for (var i=0;i<fc.features.length;i++){
+    var f = fc.features[i];
     if (!f || !f.geometry) continue;
     if (f.geometry.type === 'MultiPoint') {
-      for (const c of f.geometry.coordinates) {
-        out.push({ type: 'Feature', geometry: { type: 'Point', coordinates: c }, properties: { ...f.properties } });
+      var coords = f.geometry.coordinates || [];
+      for (var j=0;j<coords.length;j++){
+        var c = coords[j];
+        out.push({ type: 'Feature', geometry: { type: 'Point', coordinates: c }, properties: cloneProps(f.properties) });
       }
     } else if (f.geometry.type === 'Point') {
-      out.push(f);
+      out.push({ type:'Feature', geometry: { type:'Point', coordinates: f.geometry.coordinates }, properties: cloneProps(f.properties) });
     }
   }
   return out;
 }
+function cloneProps(p){ var o={}; if(!p) return o; for (var k in p){ if(Object.prototype.hasOwnProperty.call(p,k)) o[k]=p[k]; } return o; }
 
 /* ---------- Filters ---------- */
 function isTruthy(v) {
   if (v === null || v === undefined) return false;
-  const s = String(v).trim().toLowerCase();
-  return ['1','y','yes','true','да'].includes(s) || s.startsWith('y') || s.startsWith('д');
+  var s = String(v).trim().toLowerCase();
+  return s==='1' || s==='y' || s==='yes' || s==='true' || s==='да' || s.indexOf('y')===0 || s.indexOf('д')===0;
 }
 function uniqueSorted(values) {
-  return [...new Set(values.filter(v => v !== null && v !== undefined && String(v).trim() !== ''))]
-    .map(String).sort((a,b)=>a.localeCompare(b,'bg',{sensitivity:'base'}));
+  var set = [];
+  for (var i=0;i<values.length;i++){
+    var val = values[i];
+    if (val===null || val===undefined) continue;
+    var sv = String(val).trim();
+    if (!sv) continue;
+    if (set.indexOf(sv)===-1) set.push(sv);
+  }
+  set.sort(function(a,b){ return a.localeCompare(b,'bg',{sensitivity:'base'}); });
+  return set;
 }
 function populateFilterDropdowns(features) {
-  const vals = { STATUS:[], FAMILY:[], TYPE:[], ORDER:[], DISTRIBUTION:[] };
-  for (const f of features) {
-    const p = f.properties || {};
+  var vals = { STATUS:[], FAMILY:[], TYPE:[], ORDER:[], DISTRIBUTION:[] };
+  for (var i=0;i<features.length;i++){
+    var p = features[i].properties || {};
     if (p.STATUS!=null)        vals.STATUS.push(p.STATUS);
     if (p.FAMILY!=null)        vals.FAMILY.push(p.FAMILY);
     if (p.TYPE!=null)          vals.TYPE.push(p.TYPE);
     if (p.ORDER!=null)         vals.ORDER.push(p.ORDER);
     if (p.DISTRIBUTION!=null)  vals.DISTRIBUTION.push(p.DISTRIBUTION);
   }
-  // Алиаси на български
-  fillSelect(el.ddSTATUS,       ['','...'].concat(uniqueSorted(vals.STATUS)),       'Природозащитен статус (всички)');
-  fillSelect(el.ddFAMILY,       ['','...'].concat(uniqueSorted(vals.FAMILY)),       'Семейство (всички)');
-  fillSelect(el.ddTYPE,         ['','...'].concat(uniqueSorted(vals.TYPE)),         'Тип (всички)');
-  fillSelect(el.ddORDER,        ['','...'].concat(uniqueSorted(vals.ORDER)),        'Разред (всички)');
-  fillSelect(el.ddDISTRIBUTION, ['','...'].concat(uniqueSorted(vals.DISTRIBUTION)), 'Разпространение (всички)');
+  fillSelect(el.ddSTATUS,       [''].concat(uniqueSorted(vals.STATUS)),       'Природозащитен статус (всички)');
+  fillSelect(el.ddFAMILY,       [''].concat(uniqueSorted(vals.FAMILY)),       'Семейство (всички)');
+  fillSelect(el.ddTYPE,         [''].concat(uniqueSorted(vals.TYPE)),         'Тип (всички)');
+  fillSelect(el.ddORDER,        [''].concat(uniqueSorted(vals.ORDER)),        'Разред (всички)');
+  fillSelect(el.ddDISTRIBUTION, [''].concat(uniqueSorted(vals.DISTRIBUTION)), 'Разпространение (всички)');
 }
 function fillSelect(sel, values, firstLabel) {
-  const current = sel.value;
+  var current = sel.value;
   sel.innerHTML = '';
-  const mk = (val, label) => {
-    const opt = document.createElement('option');
-    opt.value = val;
-    opt.textContent = label ?? val;
-    return opt;
-  };
-  sel.appendChild(mk('', firstLabel || '(всички)'));
-  for (const v of values) {
+  var opt0 = document.createElement('option');
+  opt0.value = '';
+  opt0.textContent = firstLabel || '(всички)';
+  sel.appendChild(opt0);
+  for (var i=0;i<values.length;i++){
+    var v = values[i];
     if (v === '') continue;
-    sel.appendChild(mk(v, v));
+    var opt = document.createElement('option');
+    opt.value = v;
+    opt.textContent = v;
+    sel.appendChild(opt);
   }
-  if ([...sel.options].some(o=>o.value===current)) sel.value = current;
+  // възстанови предишния избор ако съществува
+  for (var j=0;j<sel.options.length;j++){ if (sel.options[j].value===current) { sel.value=current; break; } }
 }
 
-/* normalize string for case/diacritic-insensitive search */
+/* normalize string for case/diacritic-insensitive search (без \p{...}) */
 function normalize(v) {
   if (v == null) return '';
-  try { return String(v).toLowerCase().normalize('NFD').replace(/\p{Diacritic}/gu,''); }
-  catch(e) { return String(v).toLowerCase(); }
+  try {
+    return String(v)
+      .toLowerCase()
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, ''); // маха диакритики
+  } catch(e) {
+    return String(v).toLowerCase();
+  }
 }
 
 /* Key for species (unique list) */
-function speciesKey(props = {}) {
-  const la = (props.LATIN_NAME || '').trim();
-  const bg = (props.BG_NAME || '').trim();
-  return `${la}||${bg}`;
+function speciesKey(props) {
+  props = props||{};
+  var la = (props.LATIN_NAME || '').trim();
+  var bg = (props.BG_NAME || '').trim();
+  return la + '||' + bg;
 }
 
 /* ---------- Links helper ---------- */
-function getFeatureLink(props = {}) {
-  const cand = props.ARTICLE_URL || props.LINK || props.URL || props.WEB || props.WIKI || props.WIKIPEDIA;
+function getFeatureLink(props) {
+  props = props||{};
+  var cand = props.ARTICLE_URL || props.LINK || props.URL || props.WEB || props.WIKI || props.WIKIPEDIA;
   if (!cand) return null;
-  let href = String(cand).trim();
+  var href = String(cand).trim();
   if (!href) return null;
   if (!/^https?:\/\//i.test(href)) href = 'https://' + href;
-  try { new URL(href); return href; } catch { return null; }
+  try { new URL(href); return href; } catch(e){ return null; }
 }
 
-/* Apply filters and render unique list + highlight groups
-   - Работи и без полигон (глобално търсене/филтри по активния точков слой) */
+/* Apply filters and render unique list + highlight groups */
 function applyFiltersAndRender() {
   // ако няма избран полигон, базовият набор е глобалният за активния точков слой
   if (!state.selectedPolygonFeature && (!state.explodedPoints || !state.explodedPoints.length)) {
@@ -372,8 +399,8 @@ function applyFiltersAndRender() {
     populateFilterDropdowns(state.explodedPoints);
   }
 
-  const search = normalize(el.search.value);
-  const sel = {
+  var search = normalize(el.search.value);
+  var sel = {
     STATUS: el.ddSTATUS.value,
     FAMILY: el.ddFAMILY.value,
     TYPE: el.ddTYPE.value,
@@ -384,17 +411,18 @@ function applyFiltersAndRender() {
     EXTINCT: el.cbEXTINCT.checked
   };
 
-  const base = state.explodedPoints || [];
-  const filtered = [];
-  for (const f of base) {
-    const p = f.properties || {};
-    const nameBG = normalize(p.BG_NAME);
-    const nameLA = normalize(p.LATIN_NAME);
+  var base = state.explodedPoints || [];
+  var filtered = [];
+  for (var i=0;i<base.length;i++){
+    var f = base[i];
+    var p = f.properties || {};
+    var nameBG = normalize(p.BG_NAME);
+    var nameLA = normalize(p.LATIN_NAME);
 
-    const anyFilterOn = search || sel.STATUS || sel.FAMILY || sel.TYPE || sel.ORDER || sel.DISTRIBUTION || sel.ENDEMIC || sel.RELICT || (state.activePts==='plants' && sel.EXTINCT);
+    var anyFilterOn = !!(search || sel.STATUS || sel.FAMILY || sel.TYPE || sel.ORDER || sel.DISTRIBUTION || sel.ENDEMIC || sel.RELICT || (state.activePts==='plants' && sel.EXTINCT));
     if (!state.selectedPolygonFeature && !anyFilterOn) continue;
 
-    if (search && !(nameBG.includes(search) || nameLA.includes(search))) continue;
+    if (search && !(nameBG.indexOf(search)>-1 || nameLA.indexOf(search)>-1)) continue;
 
     if (sel.STATUS        && String(p.STATUS)        !== sel.STATUS)        continue;
     if (sel.FAMILY        && String(p.FAMILY)        !== sel.FAMILY)        continue;
@@ -425,7 +453,7 @@ function applyFiltersAndRender() {
 
 /* Render list (unique species) and all markers; click list -> highlight group */
 function renderListAndMarkers(features) {
-  const totalPoints = features.length;
+  var totalPoints = features.length;
 
   el.list.innerHTML = '';
   state.pointMarkerLayer.clearLayers();
@@ -437,18 +465,22 @@ function renderListAndMarkers(features) {
     return;
   }
 
-  const bounds = [];
-  for (const f of features) {
-    const [lng, lat] = f.geometry.coordinates;
-    const p = f.properties || {};
-    const key = speciesKey(p);
+  var bounds = [];
+  for (var i=0;i<features.length;i++){
+    var f = features[i];
+    var lng = f.geometry.coordinates[0], lat = f.geometry.coordinates[1];
+    var p = f.properties || {};
+    var key = speciesKey(p);
 
-    const marker = L.marker([lat, lng], {
+    var marker = L.marker([lat, lng], {
       icon: L.divIcon({ className: 'pt-marker', iconSize: [10,10] }),
       title: (p.BG_NAME || p.LATIN_NAME || 'Point')
     }).addTo(state.pointMarkerLayer);
 
-    marker.on('click', () => openPopupAt([lat, lng], p));
+    marker.on('click', (function(lat,lng,p){
+      return function(){ openPopupAt([lat, lng], p); };
+    })(lat,lng,p));
+
     marker._speciesKey = key;
 
     state.currentMarkers.push(marker);
@@ -458,122 +490,139 @@ function renderListAndMarkers(features) {
     bounds.push([lat, lng]);
   }
 
-  const uniqueList = [];
-  for (const [key, markers] of state.currentMarkersByKey.entries()) {
-    const rep = features.find(ft => speciesKey(ft.properties) === key) || {};
-    uniqueList.push({ key, count: markers.length, props: rep.properties || {} });
-  }
+  var uniqueList = [];
+  state.currentMarkersByKey.forEach(function(markers, key){
+    var rep = null;
+    for (var i=0;i<features.length;i++){ if (speciesKey(features[i].properties)===key){ rep=features[i]; break; } }
+    uniqueList.push({ key: key, count: markers.length, props: (rep && rep.properties) ? rep.properties : {} });
+  });
 
-  uniqueList.sort((a,b)=>{
-    const an = (a.props.BG_NAME || a.props.LATIN_NAME || '').toLowerCase();
-    const bn = (b.props.BG_NAME || b.props.LATIN_NAME || '').toLowerCase();
+  uniqueList.sort(function(a,b){
+    var an = (a.props.BG_NAME || a.props.LATIN_NAME || '').toLowerCase();
+    var bn = (b.props.BG_NAME || b.props.LATIN_NAME || '').toLowerCase();
     return an.localeCompare(bn,'bg',{sensitivity:'base'});
   });
 
-  for (const item of uniqueList) {
-    const p = item.props;
-    const div = document.createElement('div');
+  for (var u=0; u<uniqueList.length; u++){
+    var item = uniqueList[u];
+    var p = item.props;
+    var div = document.createElement('div');
     div.className = 'feature-item';
 
-    const main = `${p.BG_NAME || ''} ${p.LATIN_NAME ? `(${p.LATIN_NAME})` : ''}`;
-    const badges = [
-      p.ENDEMIC && isTruthy(p.ENDEMIC) ? '<span class="badge">Ендемит</span>' : '',
-      p.RELICT  && isTruthy(p.RELICT)  ? '<span class="badge">Реликт</span>'  : '',
-      (state.activePts==='plants' && isTruthy(p.EXTINCT)) ? '<span class="badge">Изчезнал</span>' : ''
-    ].join(' ');
+    var main = (p.BG_NAME || '') + (p.LATIN_NAME ? (' ('+p.LATIN_NAME+')') : '');
+    var badges = '';
+    if (p.ENDEMIC && isTruthy(p.ENDEMIC)) badges += '<span class="badge">Ендемит</span> ';
+    if (p.RELICT  && isTruthy(p.RELICT))  badges += '<span class="badge">Реликт</span> ';
+    if (state.activePts==='plants' && isTruthy(p.EXTINCT)) badges += '<span class="badge">Изчезнал</span> ';
 
-    /* Горен ред: текст + бутон с фиксирана ширина */
-    const topRow = document.createElement('div');
+    // Горен ред
+    var topRow = document.createElement('div');
     topRow.className = 'feature-row';
 
-    const titleSpan = document.createElement('div');
-    titleSpan.innerHTML = `${escapeHTML(main)} ${badges}`;
+    var titleSpan = document.createElement('div');
+    titleSpan.innerHTML = escapeHTML(main) + ' ' + badges;
     topRow.appendChild(titleSpan);
 
-    const linkHref = getFeatureLink(p);
-    const btn = document.createElement('button');
+    var linkHref = getFeatureLink(p);
+    var btn = document.createElement('button');
     btn.className = 'link-btn';
     btn.textContent = 'Отвори статия';
     btn.disabled = !linkHref;
     btn.title = linkHref ? 'Отваря статия в нов таб' : 'Няма наличен линк';
-    btn.addEventListener('click', (ev) => {
-      ev.stopPropagation(); // да не активира селекция/зуум на вида
-      if (linkHref) window.open(linkHref, '_blank', 'noopener');
-    });
+    btn.addEventListener('click', (function(href){
+      return function(ev){
+        ev.stopPropagation();
+        if (href) window.open(href, '_blank', 'noopener');
+      };
+    })(linkHref));
     topRow.appendChild(btn);
 
-    /* Долен ред: мета + бадж за брой */
-    const meta = document.createElement('div');
+    // Долен ред
+    var meta = document.createElement('div');
     meta.className = 'muted';
     meta.style.fontSize = '12px';
     meta.textContent = [p.STATUS, p.TYPE, p.FAMILY].filter(Boolean).join(' · ');
-    const countBadge = document.createElement('span');
+    var countBadge = document.createElement('span');
     countBadge.className = 'badge';
     countBadge.title = 'Брой точки за този вид';
     countBadge.textContent = item.count;
     meta.appendChild(document.createTextNode(' '));
     meta.appendChild(countBadge);
 
-    /* Сглобяване */
+    // Сглобяване
     div.appendChild(topRow);
     div.appendChild(meta);
 
-    /* Клик по елемента → подсвет и умерен зуум */
-    div.onclick = () => {
-      state.selectedSpeciesKey = item.key;
-      for (const m of state.currentMarkers) m._icon?.classList.remove('highlight');
-      const group = state.currentMarkersByKey.get(item.key) || [];
-      const gb = [];
-      for (const m of group) { m._icon?.classList.add('highlight'); gb.push(m.getLatLng()); }
-      if (gb.length === 1) {
-        const target = gb[0];
-        const targetZoom = Math.max(10, Math.min(11, map.getZoom()));
-        map.setView(target, targetZoom, { animate: true });
-      } else if (gb.length > 1) {
-        const b = L.latLngBounds(gb);
-        map.fitBounds(b.pad(0.25), { maxZoom: 12 });
-      }
-    };
+    // Клик по елемента → подсвет и умерен зуум (само при избор на вид)
+    div.onclick = (function(itemKey){
+      return function(){
+        state.selectedSpeciesKey = itemKey;
+        for (var m=0;m<state.currentMarkers.length;m++){
+          var iconEl = state.currentMarkers[m]._icon;
+          if (iconEl && iconEl.classList) iconEl.classList.remove('highlight');
+        }
+        var group = state.currentMarkersByKey.get(itemKey) || [];
+        var gb = [];
+        for (var g=0; g<group.length; g++){
+          var mk = group[g];
+          if (mk && mk._icon && mk._icon.classList) mk._icon.classList.add('highlight');
+          gb.push(mk.getLatLng());
+        }
+        if (gb.length === 1) {
+          var target = gb[0];
+          var targetZoom = Math.max(10, Math.min(11, map.getZoom()));
+          map.setView(target, targetZoom, { animate: true });
+        } else if (gb.length > 1) {
+          var b = L.latLngBounds(gb);
+          map.fitBounds(b.pad(0.25), { maxZoom: 12 });
+        }
+      };
+    })(item.key);
 
     el.list.appendChild(div);
   }
 
-  el.count.textContent = `Намерени видове: ${uniqueList.length} (точки: ${totalPoints})`;
+  el.count.textContent = 'Намерени видове: ' + uniqueList.length + ' (точки: ' + totalPoints + ')';
 
   // Авто-зуум САМО в глобален режим (без избран полигон).
   if (!state.selectedPolygonFeature && features.length) {
     try {
-      const b = L.latLngBounds(features.map(f => [f.geometry.coordinates[1], f.geometry.coordinates[0]]));
-      map.fitBounds(b.pad(0.2), { maxZoom: 11 });
+      var all = [];
+      for (var k=0;k<features.length;k++){
+        all.push([features[k].geometry.coordinates[1], features[k].geometry.coordinates[0]]);
+      }
+      var bnds = L.latLngBounds(all);
+      map.fitBounds(bnds.pad(0.2), { maxZoom: 11 });
     } catch(e){}
   }
 }
 
 /* Popup table */
 function openPopupAt(latlng, props) {
-  const rows = [];
-  const link = getFeatureLink(props);
+  props = props||{};
+  var rows = [];
+  var link = getFeatureLink(props);
   if (link) {
-    rows.push(`<tr><th style="text-align:left; padding-right:8px">Линк</th>
-      <td><a href="${escapeHTML(link)}" target="_blank" rel="noopener">Отвори статия</a></td></tr>`);
+    rows.push('<tr><th style="text-align:left; padding-right:8px">Линк</th><td><a href="'+escapeHTML(link)+'" target="_blank" rel="noopener">Отвори статия</a></td></tr>');
   }
-  const keysOrder = [
-    'BG_NAME','LATIN_NAME','STATUS','TYPE','ORDER','FAMILY','DISTRIBUTION','ENDEMIC','RELICT','EXTINCT'
-  ];
-  for (const k of keysOrder) {
-    if (props[k] !== undefined) rows.push(`<tr><th style="text-align:left; padding-right:8px">${escapeHTML(k)}</th><td>${escapeHTML(props[k])}</td></tr>`);
+  var keysOrder = ['BG_NAME','LATIN_NAME','STATUS','TYPE','ORDER','FAMILY','DISTRIBUTION','ENDEMIC','RELICT','EXTINCT'];
+  for (var i=0;i<keysOrder.length;i++){
+    var k = keysOrder[i];
+    if (typeof props[k] !== 'undefined') rows.push('<tr><th style="text-align:left; padding-right:8px">'+escapeHTML(k)+'</th><td>'+escapeHTML(props[k])+'</td></tr>');
   }
-  for (const k of Object.keys(props)) {
-    if (!keysOrder.includes(k)) rows.push(`<tr><th style="text-align:left; padding-right:8px">${escapeHTML(k)}</th><td>${escapeHTML(props[k])}</td></tr>`);
+  for (var key in props) {
+    if (!Object.prototype.hasOwnProperty.call(props,key)) continue;
+    if (keysOrder.indexOf(key)===-1) rows.push('<tr><th style="text-align:left; padding-right:8px">'+escapeHTML(key)+'</th><td>'+escapeHTML(props[key])+'</td></tr>');
   }
-  const html = `<table style="font-size:13px">${rows.join('')}</table>`;
+  var html = '<table style="font-size:13px">'+rows.join('')+'</table>';
   L.popup().setLatLng(latlng).setContent(html).openOn(map);
 }
 
 /* ---------- Controls / Events ---------- */
 function wireControls() {
-  document.querySelectorAll('input[name="poly"]').forEach(r => {
-    r.addEventListener('change', () => {
+  var polyRadios = document.querySelectorAll('input[name="poly"]');
+  for (var i=0;i<polyRadios.length;i++){
+    polyRadios[i].addEventListener('change', function(){
       // махни текущия полигонов слой
       map.removeLayer(layers.poly[state.activePoly]);
       // върни стил на евентуално селектиран предишен полигон
@@ -581,16 +630,17 @@ function wireControls() {
         try { state.selectedPolygonLayer.setStyle(BASE_STYLES[state.activePoly]); } catch(e){}
       }
       // смени активния слой
-      state.activePoly = r.value;
+      state.activePoly = this.value;
       map.addLayer(layers.poly[state.activePoly]);
-      clearSelection(); // към глобален режим (без селектиран полигон)
+      clearSelection();
       try { map.fitBounds(layers.poly[state.activePoly].getBounds(), { padding: [20,20] }); } catch(e){}
     });
-  });
+  }
 
-  document.querySelectorAll('input[name="points"]').forEach(r => {
-    r.addEventListener('change', () => {
-      state.activePts = r.value;
+  var ptRadios = document.querySelectorAll('input[name="points"]');
+  for (var j=0;j<ptRadios.length;j++){
+    ptRadios[j].addEventListener('change', function(){
+      state.activePts = this.value;
       refreshFilterVisibility();
       if (state.selectedPolygonFeature) {
         onPolygonClick(state.selectedPolygonFeature, state.selectedPolygonLayer);
@@ -600,22 +650,22 @@ function wireControls() {
         applyFiltersAndRender();
       }
     });
-  });
+  }
 
-  let t;
-  el.search.addEventListener('input', () => {
+  var t;
+  el.search.addEventListener('input', function(){
     clearTimeout(t);
     t = setTimeout(applyFiltersAndRender, 300);
   });
 
   [el.ddSTATUS, el.ddFAMILY, el.ddTYPE, el.ddORDER, el.ddDISTRIBUTION,
-   el.cbENDEMIC, el.cbRELICT, el.cbEXTINCT].forEach(ctrl => {
-    ctrl.addEventListener('change', applyFiltersAndRender);
+   el.cbENDEMIC, el.cbRELICT, el.cbEXTINCT].forEach(function(ctrl){
+     ctrl.addEventListener('change', applyFiltersAndRender);
   });
 
-  el.btnClearFilters.addEventListener('click', () => {
+  el.btnClearFilters.addEventListener('click', function(){
     el.search.value = '';
-    [el.ddSTATUS, el.ddFAMILY, el.ddTYPE, el.ddORDER, el.ddDISTRIBUTION].forEach(sel => sel.value = '');
+    [el.ddSTATUS, el.ddFAMILY, el.ddTYPE, el.ddORDER, el.ddDISTRIBUTION].forEach(function(s){ s.value=''; });
     el.cbENDEMIC.checked = false;
     el.cbRELICT.checked  = false;
     el.cbEXTINCT.checked = false;
@@ -626,7 +676,6 @@ function wireControls() {
 }
 
 function clearSelection() {
-  // върни стил, ако има селектиран полигон
   if (state.selectedPolygonLayer) {
     try { state.selectedPolygonLayer.setStyle(BASE_STYLES[state.activePoly]); } catch(e){}
   }
@@ -640,26 +689,34 @@ function clearSelection() {
   state.filteredPoints = [];
   state.pointMarkerLayer.clearLayers();
   state.selectedSpeciesKey = null;
-  for (const m of state.currentMarkers) m._icon?.classList.remove('highlight');
+  for (var i=0;i<state.currentMarkers.length;i++){
+    var iconEl = state.currentMarkers[i]._icon;
+    if (iconEl && iconEl.classList) iconEl.classList.remove('highlight');
+  }
   el.list.innerHTML = '';
   el.count.textContent = 'Въведете търсене или изберете филтър.';
 }
 
 function refreshFilterVisibility() {
-  const isAnimals = state.activePts === 'animals';
-  el.rowTypeOrder.classList.toggle('hidden', !isAnimals);
-  el.extinctLine.classList.toggle('hidden', isAnimals);
+  var isAnimals = state.activePts === 'animals';
+  if (isAnimals) {
+    el.rowTypeOrder.classList.remove('hidden');
+    el.extinctLine.classList.add('hidden');
+  } else {
+    el.rowTypeOrder.classList.add('hidden');
+    el.extinctLine.classList.remove('hidden');
+  }
 }
 
 /* ---------- Utils ---------- */
 function escapeHTML(v) {
   if (v===null || v===undefined) return '';
   return String(v)
-   .replaceAll('&','&amp;')
-   .replaceAll('<','&lt;')
-   .replaceAll('>','&gt;')
-   .replaceAll('"','&quot;')
-   .replaceAll("'",'&#39;');
+    .replace(/&/g,'&amp;')
+    .replace(/</g,'&lt;')
+    .replace(/>/g,'&gt;')
+    .replace(/"/g,'&quot;')
+    .replace(/'/g,'&#39;');
 }
 </script>
 </body>
