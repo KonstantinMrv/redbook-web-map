@@ -24,10 +24,10 @@
     }
     .checkline{ display:flex; align-items:center; gap:8px; }
 
-    /* Бутоните – центрирани с равни отстояния до краищата и помежду им */
+    /* Бутони – центрирани, равни отстояния */
     .btnbar{
       display:flex;
-      justify-content: space-evenly; /* равни отстояния */
+      justify-content: space-evenly;
       align-items:center;
       margin:6px 0 10px;
     }
@@ -220,25 +220,34 @@
       setGlobalExplodedFromActive();
       populateFilterDropdowns(state.explodedPoints);
 
-      /* Лек авто-зуум към границите на morph_units + по-силен „бут“ на изток */
+      /* Лек авто-зуум към границите на morph_units + динамично „бутане“ на изток */
       fitToMorphBG();
 
       wireControls();
       refreshFilterVisibility();
     });
 
-    /* ---- Лек авто-зуум само по морфоложкия слой + източен „nudging“ ---- */
+    /* ---- Лек авто-зуум само по морфоложкия слой + динамичен източен „nudging“ ---- */
     function fitToMorphBG() {
       try {
         const bounds = layers.poly.morph?.getBounds();
         if (bounds && bounds.isValid()) {
           map.fitBounds(bounds, {
-            padding: [30, 30], // лек падинг
-            maxZoom: 8         // не твърде близо
+            padding: [30, 30],
+            maxZoom: 8
           });
-          // По-изразено изместване ~220 px надясно (на изток),
-          // за да не покрива панелът част от територията.
-          map.panBy([220, 0], { animate: false });
+
+          // Динамично изместване надясно:
+          // - половината ширина на сайдпанела
+          // - но не повече от ~40% от ширината на картата
+          const sidebar = document.getElementById('sidebar');
+          const mapEl = document.getElementById('map');
+          const sidebarW = sidebar ? sidebar.getBoundingClientRect().width : 0;
+          const mapW = mapEl ? mapEl.clientWidth : window.innerWidth;
+          const desired = Math.round(sidebarW * 0.5);
+          const cap = Math.round(mapW * 0.4);
+          const shiftX = Math.min(desired, cap);
+          if (shiftX > 0) map.panBy([shiftX, 0], { animate: false });
         }
       } catch (e) {
         console.warn('Неуспешно начално побиране:', e);
