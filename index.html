@@ -11,7 +11,7 @@
     html, body { height: 100%; margin: 0; font-family: system-ui, Arial, sans-serif; }
     #map { position: absolute; inset: 0; }
     #sidebar {
-      position: absolute; top: 10px; right: 10px; width: 360px; max-width: 94vw;
+      position: absolute; top: 10px; right: 10px; width: 420px; max-width: 94vw;
       max-height: calc(100% - 20px); overflow: auto; background: #fff; padding: var(--pad);
       border-radius: var(--radius); box-shadow: 0 6px 18px rgba(0,0,0,.25); z-index: 9999;
     }
@@ -30,9 +30,17 @@
     }
     button:hover { background:#eee; }
     #count { margin: 6px 0; font-weight: 600; }
-    #list { border-top: 1px solid #ddd; margin-top: 6px; }
-    .feature-item { cursor:pointer; padding:8px 4px; border-bottom:1px solid #eee; }
+
+    /* Фиксирани размери на списъка */
+    #list {
+      border-top: 1px solid #ddd; margin-top: 6px;
+      height: 50vh;            /* фиксирана височина ~ половин екран */
+      overflow: auto;          /* скрол в списъка */
+    }
+
+    .feature-item { cursor:pointer; padding:10px 6px; border-bottom:1px solid #eee; }
     .feature-item:hover { background:#faf6e8; }
+
     .badge { display:inline-block; font-size: 11px; padding: 2px 6px; border-radius: 999px; background:#eef; border:1px solid #ccd; margin-left: 6px; }
     .legend { font-size: 12px; color:#666; }
     .muted { color:#666; }
@@ -59,19 +67,26 @@
     /* По-изразено hover/selection на полигони */
     .leaflet-interactive.hovered { stroke-width: 3px !important; filter: brightness(1.2); }
 
-    /* Бутон за статия в списъка */
+    /* Бутон за статия в списъка — фиксирана ширина и стабилен ред */
+    .feature-row {
+      display: grid;
+      grid-template-columns: 1fr 120px;  /* ляво: текст, дясно: бутон с фиксирана ширина */
+      align-items: center;
+      gap: 8px;
+    }
     .link-btn {
-      margin-left: auto;
-      padding: 4px 8px;
+      width: 120px;            /* фиксирана ширина */
+      text-align: center;
+      padding: 6px 8px;
       font-size: 12px;
       border-radius: 6px;
       border: 1px solid #ccc;
       background: #f4f6ff;
       cursor: pointer;
+      white-space: nowrap;     /* не позволява пренасяне */
     }
     .link-btn:hover { background: #e9edff; }
     .link-btn:disabled { opacity: .5; cursor: not-allowed; }
-    .feature-row { display: flex; align-items: center; gap: 8px; }
   </style>
 </head>
 <body>
@@ -454,7 +469,7 @@ function renderListAndMarkers(features) {
       (state.activePts==='plants' && isTruthy(p.EXTINCT)) ? '<span class="badge">Изчезнал</span>' : ''
     ].join(' ');
 
-    // Горен ред: име + значки + бутон
+    /* Горен ред: текст + бутон с фиксирана ширина */
     const topRow = document.createElement('div');
     topRow.className = 'feature-row';
 
@@ -474,7 +489,7 @@ function renderListAndMarkers(features) {
     });
     topRow.appendChild(btn);
 
-    // Долен ред: мета + бадж за брой
+    /* Долен ред: мета + бадж за брой */
     const meta = document.createElement('div');
     meta.className = 'muted';
     meta.style.fontSize = '12px';
@@ -486,11 +501,11 @@ function renderListAndMarkers(features) {
     meta.appendChild(document.createTextNode(' '));
     meta.appendChild(countBadge);
 
-    // Сглобяване
+    /* Сглобяване */
     div.appendChild(topRow);
     div.appendChild(meta);
 
-    // Клик по елемента → подсвет и умерен зуум
+    /* Клик по елемента → подсвет и умерен зуум */
     div.onclick = () => {
       state.selectedSpeciesKey = item.key;
       for (const m of state.currentMarkers) m._icon?.classList.remove('highlight');
