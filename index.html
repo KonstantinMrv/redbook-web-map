@@ -8,27 +8,49 @@
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
   <style>
     :root { --pad:12px; --gap:8px; --radius:10px; }
+
+    /* ВАЖНО: предотвратява преливане на input/select */
+    *, *::before, *::after { box-sizing: border-box; }
+
     html, body { height:100%; margin:0; font-family:system-ui, Arial, sans-serif; }
     #map { position:absolute; inset:0; }
+
+    /* Унифициран и фиксиран панел */
     #sidebar{
       position:absolute; top:10px; right:10px; width:500px; max-width:94vw;
-      max-height:calc(100% - 20px); overflow:auto; background:#fff; padding:var(--pad);
+      max-height:calc(100% - 20px);
+      overflow-y:auto;          /* само вертикален скрол при нужда */
+      overflow-x:hidden;        /* без хоризонтален скрол */
+      background:#fff; padding:var(--pad);
       border-radius:var(--radius); box-shadow:0 6px 18px rgba(0,0,0,.25); z-index:9999;
     }
     #sidebar h3{ margin:0 0 var(--gap) 0; }
     .controls section{ margin-bottom:10px; }
     .controls label{ display:block; margin:4px 0; cursor:pointer; }
-    .row{ display:grid; grid-template-columns:1fr 1fr; gap:var(--gap); }
-    input[type="text"], select{
-      width:100%; padding:8px; border:1px solid #ccc; border-radius:6px; font-size:14px;
+
+    /* Гридове без преливане */
+    .row{
+      display:grid;
+      grid-template-columns:minmax(0,1fr) minmax(0,1fr);
+      gap:var(--gap);
     }
+
+    /* Форм елементи – на 100% вътре в панела */
+    input[type="text"], select{
+      width:100%; max-width:100%;
+      display:block;
+      padding:8px; border:1px solid #ccc; border-radius:6px; font-size:14px;
+      /* border-box вече е глобално */
+    }
+
     .checkline{ display:flex; align-items:center; gap:8px; }
 
-    /* Бутони – центрирани, равни отстояния */
+    /* Бутони – центрирани, равни отстояния и фиксиран минимум */
     .btnbar{
       display:flex;
       justify-content: space-evenly;
       align-items:center;
+      gap: var(--gap);
       margin:6px 0 10px;
     }
     .btnbar button{
@@ -44,6 +66,7 @@
       border-top:1px solid #ddd; margin-top:6px;
       height:50vh; overflow:auto;
     }
+
     .feature-item{ cursor:pointer; padding:10px 6px; border-bottom:1px solid #eee; }
     .feature-item:hover{ background:#faf6e8; }
 
@@ -220,39 +243,50 @@
       setGlobalExplodedFromActive();
       populateFilterDropdowns(state.explodedPoints);
 
-      /* Лек авто-зуум към границите на morph_units + динамично „бутане“ на изток */
+      /* Лек авто-зуум към границите на morph_units + асиметричен padding спрямо панела */
       fitToMorphBG();
 
       wireControls();
       refreshFilterVisibility();
     });
 
-    /* ---- Лек авто-зуум само по морфоложкия слой + динамичен източен „nudging“ ---- */
+    /* ---- Лек авто-зуум само по морфоложкия слой + асиметричен десен padding ---- */
     function fitToMorphBG() {
       try {
         const bounds = layers.poly.morph?.getBounds();
-        if (bounds && bounds.isValid()) {
-          map.fitBounds(bounds, {
-            padding: [30, 30],
-            maxZoom: 8
-          });
+        if (!bounds || !bounds.isValid()) return;
 
-          // Динамично изместване надясно:
-          // - половината ширина на сайдпанела
-          // - но не повече от ~40% от ширината на картата
-          const sidebar = document.getElementById('sidebar');
-          const mapEl = document.getElementById('map');
-          const sidebarW = sidebar ? sidebar.getBoundingClientRect().width : 0;
-          const mapW = mapEl ? mapEl.clientWidth : window.innerWidth;
-          const desired = Math.round(sidebarW * 0.5);
-          const cap = Math.round(mapW * 0.4);
-          const shiftX = Math.min(desired, cap);
-          if (shiftX > 0) map.panBy([shiftX, 0], { animate: false });
-        }
+        // увери се, че Leaflet знае реалния размер на контейнера
+        map.invalidateSize();
+
+        // измери реалната ширина на сайдпанела и картата
+        const sidebar = document.getElementById('sidebar');
+        const mapEl = document.getElementById('map');
+        const sidebarW = sidebar ? sidebar.getBoundingClientRect().width : 0;
+        const mapW = mapEl ? mapEl.clientWidth : window.innerWidth;
+
+        // ограничение (ако панелът е твърде голям)
+        const rightPad = Math.min(Math.round(sidebarW), Math.round(mapW * 0.45));
+
+        // асиметричен fit: повече падинг отдясно, за да остане място под панела
+        map.fitBounds(bounds, {
+          paddingTopLeft: [30, 30],
+          paddingBottomRight: [30 + rightPad, 30],
+          maxZoom: 8
+        });
       } catch (e) {
         console.warn('Неуспешно начално побиране:', e);
       }
     }
+
+    /* --- Debounced resize: преизчисли началния fit веднъж след resize --- */
+    (function () {
+      let t;
+      window.addEventListener('resize', () => {
+        clearTimeout(t);
+        t = setTimeout(() => fitToMorphBG(), 200);
+      });
+    })();
 
     /* ---------- Helpers ---------- */
     function explodeMultiPoints(fc) {
