@@ -199,8 +199,8 @@
     <div class="controls" role="group" aria-label="Controls">
       <section>
         <strong>Основа</strong>
-        <label><input type="radio" name="polyMain" value="morph" checked> Геоморфоложки структури</label>
-        <label><input type="radio" name="polyMain" value="land"> Ландшафтно райониране</label>
+        <label><input type="radio" name="polyMain" value="morph"> Геоморфоложки структури</label>
+        <label><input type="radio" name="polyMain" value="land" checked> Ландшафтно райониране</label>
 
         <label class="checkline" style="margin-top:6px;">
           <input type="radio" name="polyMain" value="zones"> Защитени територии
@@ -314,15 +314,16 @@
         maxZoom: 20,
         attribution: '&copy; OpenStreetMap'
       }).addTo(map);
+      map.options.maxBoundsViscosity = 1.0;  // лепкавост по ръбовете
       state.pointMarkerLayer = L.layerGroup().addTo(map);
       return true;
     })();
 
     /* ---------- STATE ---------- */
     const state = {
-      activePolyMain: 'morph',        // 'morph' | 'land' | 'zones'
-      activePoly:     'morph',        // реалният ключ в POLY_DEFS
-      activePts:      'animals',      // 'animals' | 'plants'
+      activePolyMain: 'land',        // 'morph' | 'land' | 'zones'
+      activePoly:     'land',        // реалният ключ в POLY_DEFS
+      activePts:      'animals',     // 'animals' | 'plants'
       selectedPolygonFeature: null,
       selectedPolygonLayer: null,
       explodedPoints: [],
@@ -377,35 +378,68 @@
       return def.layer;
     }
 
-    /* ---- Лек авто-зуум по активния полигонов слой + асиметричен десен padding ---- */
-    function fitToActivePolyForBG() {
+    /* ---- Модулен авто-fit с десен padding към сайдпанела ---- */
+    function lockInitialExtentFrom(bounds) {
       try {
-        const def = POLY_DEFS[state.activePoly];
-        if (!def?.layer) return;
-        const bounds = def.layer.getBounds();
         if (!bounds || !bounds.isValid()) return;
-        map.invalidateSize();
+        const initialZoom = map.getZoom();
+        map.setMinZoom(initialZoom);           // не може да се зуумаутва повече от началния
+        map.setMaxBounds(bounds.pad(0.05));    // ограничение по рамка (лек пад)
+        map.options.maxBoundsViscosity = 1.0;  // лепкавост
+      } catch (e) { console.warn('lockInitialExtentFrom() грешка:', e); }
+    }
 
-        const sidebar = document.getElementById('sidebar');
-        const mapEl = document.getElementById('map');
-        const sidebarW = sidebar ? sidebar.getBoundingClientRect().width : 0;
-        const mapW = mapEl ? mapEl.clientWidth : window.innerWidth;
-        const rightPad = Math.min(Math.round(sidebarW), Math.round(mapW * 0.45));
+    /**
+     * Автоматичен fit към активния полигонов слой с отчитане на ширината на сайдпанела.
+     * @param {{lock?: boolean, refitOnly?: boolean}} opts
+     *   lock: ако е true – след приключване на fit веднъж се заключва началният обхват по текущите граници
+     *   refitOnly: ако е true – само преизчислява padding и re-fit-ва без да пипа minZoom/maxBounds
+     */
+    function fitToActivePolyWithSidebar({ lock = false, refitOnly = false } = {}) {
+      const def = POLY_DEFS[state.activePoly];
+      if (!def?.layer) return;
 
+      let bounds = def.layer.getBounds();
+      if (!bounds || !bounds.isValid()) return;
+
+      // Леко разширяване, за да не се "реже" нищо по ръбовете
+      try { bounds = bounds.pad(0.02); } catch(_) {}
+
+      // Изчисли десния padding според ширината на сайдпанела
+      const sidebar = document.getElementById('sidebar');
+      const mapEl = document.getElementById('map');
+      const sidebarW = sidebar ? sidebar.getBoundingClientRect().width : 0;
+      const mapW = mapEl ? mapEl.clientWidth : window.innerWidth;
+      const rightPad = Math.min(Math.round(sidebarW), Math.round(mapW * 0.45));
+
+      // За да няма "подскачане"
+      map.invalidateSize();
+
+      const doFit = () => {
         map.fitBounds(bounds, {
           paddingTopLeft: [30, 30],
           paddingBottomRight: [30 + rightPad, 30],
           maxZoom: 8
         });
-      } catch (e) { console.warn('Неуспешно начално побиране:', e); }
+      };
+
+      if (lock && !refitOnly) {
+        const once = () => {
+          map.off('moveend', once);
+          lockInitialExtentFrom(bounds);
+        };
+        map.once('moveend', once);
+      }
+
+      doFit();
     }
 
-    // преизчислявай fit след resize
+    /* ---- Refit при window resize, без промяна на ограниченията ---- */
     (function () {
       let t;
       window.addEventListener('resize', () => {
         clearTimeout(t);
-        t = setTimeout(() => fitToActivePolyForBG(), 200);
+        t = setTimeout(() => fitToActivePolyWithSidebar({ refitOnly: true }), 200);
       });
     })();
 
@@ -847,6 +881,9 @@
           state.pointMarkerLayer.clearLayers();
           el.list.innerHTML = '';
           el.count.textContent = 'Въведете търсене или изберете филтър.';
+
+          // авто-fit и заключване за новия слой
+          fitToActivePolyWithSidebar({ lock: true });
         });
       });
 
@@ -875,6 +912,9 @@
         state.pointMarkerLayer.clearLayers();
         el.list.innerHTML = '';
         el.count.textContent = 'Въведете търсене или изберете филтър.';
+
+        // авто-fit и заключване за новия под-слой
+        fitToActivePolyWithSidebar({ lock: true });
       });
 
       // смяна на точков слой
@@ -920,7 +960,8 @@
       el.btnClearSel.addEventListener('click', () => {
         state.selectedSpeciesKey = null;
         clearSelection();
-        fitToActivePolyForBG();
+        // re-fit със запазени ограничения
+        fitToActivePolyWithSidebar({ refitOnly: true });
       });
     }
 
@@ -970,13 +1011,15 @@
       layers.data.animals = animals;
       layers.data.plants  = plants;
 
-      // стартов полигонов слой (morph)
+      // стартов полигонов слой (land)
       const layer = await ensurePolyLayer(state.activePoly);
       layer.addTo(map);
 
       setGlobalExplodedFromActive();
       populateFilterDropdowns(state.explodedPoints);
-      fitToActivePolyForBG();
+
+      // авто-fit + заключване след първия moveend
+      fitToActivePolyWithSidebar({ lock: true });
 
       wireControls();
       refreshFilterVisibility();
@@ -984,4 +1027,3 @@
   </script>
 </body>
 </html>
-
