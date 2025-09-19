@@ -64,7 +64,7 @@
       box-shadow: 0 1px 3px rgba(0,0,0,.15);
     }
 
-    /* По-изразено hover/selection на полигони */
+    /* По-изразено hover на полигони */
     .leaflet-interactive.hovered { stroke-width: 3px !important; filter: brightness(1.2); }
 
     /* Бутон за статия в списъка — фиксирана ширина и стабилен ред */
@@ -187,6 +187,16 @@ const el = {
 /* ---------- Layers ---------- */
 const layers = { poly: {}, data: {} };
 
+/* Стилове за полигони: базови и „светещи“ при селекция */
+const BASE_STYLES = {
+  morph: { color: '#B08D57', weight: 1, fillColor: '#F3E5AB', fillOpacity: 0.65 },
+  land:  { color: '#5A8F68', weight: 1, fillColor: '#CDE8B8', fillOpacity: 0.65 }
+};
+const SELECTED_STYLES = {
+  morph: { color: '#B08D57', weight: 4, fillColor: '#FFF4C9', fillOpacity: 0.8 }, // по-светло бежово
+  land:  { color: '#5A8F68', weight: 4, fillColor: '#E9F6D8', fillOpacity: 0.8 }  // по-светло зелено
+};
+
 /* Label helper (NAME) */
 function getPolyLabel(props = {}) { return props.NAME || ''; }
 
@@ -198,7 +208,7 @@ Promise.all([
   fetch(PLANTS_FUNGI_GEOJSON_URL).then(r=>r.json())
 ]).then(([morph, land, animals, plants]) => {
   layers.poly.morph = L.geoJSON(morph, {
-    style: { color: '#B08D57', weight: 1, fillColor: '#F3E5AB', fillOpacity: 0.65 }, // бежово
+    style: BASE_STYLES.morph,
     onEachFeature: (f, l) => {
       l.on({
         mouseover: e => { if (e?.target?._path) e.target._path.classList.add('hovered'); },
@@ -211,7 +221,7 @@ Promise.all([
   }).addTo(map);
 
   layers.poly.land = L.geoJSON(land, {
-    style: { color: '#5A8F68', weight: 1, fillColor: '#CDE8B8', fillOpacity: 0.65 }, // зеленикаво
+    style: BASE_STYLES.land,
     onEachFeature: (f, l) => {
       l.on({
         mouseover: e => { if (e?.target?._path) e.target._path.classList.add('hovered'); },
@@ -245,14 +255,17 @@ function setGlobalExplodedFromActive() {
 function onPolygonClick(feature, layer) {
   state.activePts = document.querySelector('input[name="points"]:checked').value;
 
-  // изчистване стил на предишен полигон
-  if (state.selectedPolygonLayer) try { state.selectedPolygonLayer.setStyle({weight:1}); } catch(e){}
+  // Върни предишния полигон към базов стил
+  if (state.selectedPolygonLayer) {
+    try { state.selectedPolygonLayer.setStyle(BASE_STYLES[state.activePoly]); } catch(e){}
+  }
+
+  // Запази текущия като селектиран и „светни“ го
   state.selectedPolygonLayer = layer;
   state.selectedPolygonFeature = feature;
-  layer.setStyle({ weight: 4 }); // по-дебела рамка за селекция
+  layer.setStyle(SELECTED_STYLES[state.activePoly]);
 
-  // авто-зуум към полигона
-  try { map.fitBounds(layer.getBounds(), { padding: [20,20] }); } catch(e){}
+  // НЕ ЗУУМВАМЕ към полигона
 
   // Explode -> only inside
   const exploded = explodeMultiPoints(layers.data[state.activePts]);
@@ -561,10 +574,16 @@ function openPopupAt(latlng, props) {
 function wireControls() {
   document.querySelectorAll('input[name="poly"]').forEach(r => {
     r.addEventListener('change', () => {
+      // махни текущия полигонов слой
       map.removeLayer(layers.poly[state.activePoly]);
+      // върни стил на евентуално селектиран предишен полигон
+      if (state.selectedPolygonLayer) {
+        try { state.selectedPolygonLayer.setStyle(BASE_STYLES[state.activePoly]); } catch(e){}
+      }
+      // смени активния слой
       state.activePoly = r.value;
       map.addLayer(layers.poly[state.activePoly]);
-      clearSelection(); // към глобален режим
+      clearSelection(); // към глобален режим (без селектиран полигон)
       try { map.fitBounds(layers.poly[state.activePoly].getBounds(), { padding: [20,20] }); } catch(e){}
     });
   });
@@ -607,7 +626,10 @@ function wireControls() {
 }
 
 function clearSelection() {
-  if (state.selectedPolygonLayer) try { state.selectedPolygonLayer.setStyle({weight:1}); } catch(e){}
+  // върни стил, ако има селектиран полигон
+  if (state.selectedPolygonLayer) {
+    try { state.selectedPolygonLayer.setStyle(BASE_STYLES[state.activePoly]); } catch(e){}
+  }
   state.selectedPolygonLayer = null;
   state.selectedPolygonFeature = null;
 
