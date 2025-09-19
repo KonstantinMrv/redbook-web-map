@@ -402,24 +402,32 @@
       let bounds = def.layer.getBounds();
       if (!bounds || !bounds.isValid()) return;
 
-      try { bounds = bounds.pad(0.0125); } catch(_) {}  // по-малък pad => по-близо
-      
+      // Леко разширяване, за да не се "реже" нищо по ръбовете
+      try { bounds = bounds.pad(0.015); } catch(_) {}
+
+      // Изчисли десния padding според ширината на сайдпанела
       const sidebar = document.getElementById('sidebar');
       const mapEl = document.getElementById('map');
       const sidebarW = sidebar ? Math.round(sidebar.getBoundingClientRect().width) : 0;
       const mapW = mapEl ? mapEl.clientWidth : window.innerWidth;
-      
-      // по-строг десен падинг: реалната ширина на панела + малък буфер
-      const rightPad = Math.min(sidebarW + 24, Math.round(mapW * 0.5));
-      
-      // За да няма "подскачане"
+
+      // реална ширина на панела + малък буфер, но не повече от 55% от ширината на картата
+      const rightPad = Math.min(sidebarW + 24, Math.round(mapW * 0.55));
+      const padTL = [16, 16];
+      const padBR = [16 + rightPad, 16];
+
+      // За да няма „подскачане“
       map.invalidateSize();
-      
+
+      // Изчисли максимално близкия zoom, който побира bounds с падинги, и му позволи +1 ниво
+      const targetZoom = map.getBoundsZoom(bounds, true, { paddingTopLeft: padTL, paddingBottomRight: padBR });
+      const startMaxZoom = Math.min((targetZoom + 1), 12, map.getMaxZoom?.() ?? 12);
+
       const doFit = () => {
         map.fitBounds(bounds, {
-          paddingTopLeft: [18, 18],
-          paddingBottomRight: [18 + rightPad, 18],
-          maxZoom: 10   // позволи по-близко начално приближение
+          paddingTopLeft: padTL,
+          paddingBottomRight: padBR,
+          maxZoom: startMaxZoom
         });
       };
 
@@ -439,7 +447,7 @@
       let t;
       window.addEventListener('resize', () => {
         clearTimeout(t);
-        t = setTimeout(() => fitToActivePolyWithSidebar({ refitOnly: true }), 200);
+        t = setTimeout(() => fitToActivePolyWithSidebar({ refitOnly: true }), 100);
       });
     })();
 
@@ -1027,4 +1035,3 @@
   </script>
 </body>
 </html>
-
