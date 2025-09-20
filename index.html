@@ -26,8 +26,8 @@
       --st-vu-bg:#FFF3CD; --st-vu-bd:#FFE08A; --st-vu-tx:#7A5E00;
       --st-en-bg:#FFE0B2; --st-en-bd:#FFCC80; --st-en-tx:#8B3E00;
       --st-cr-bg:#FFCDD2; --st-cr-bd:#F5A3AB; --st-cr-tx:#B71C1C;
-      --st-dd-bg:#E3F2FD; --st-dd-bd:#BBDEFB; --st-dd-tx:#0D47A1;
-      --st-ex-bg:#111111; --st-ex-bd:#000000; --st-ex-tx:#FFFFFF;
+      --st-dd-bg:#E3F2FD; --st-dd-bд:#BBDEFB; --st-dd-тx:#0D47A1;
+      --st-ex-bg:#111111; --st-ex-bд:#000000; --st-ex-тx:#FFFFFF;
     }
 
     *, *::before, *::after { box-sizing: border-box; }
@@ -117,10 +117,10 @@
     .chip--st.lc{ background:var(--st-lc-bg); border-color:var(--st-lc-bd); color:var(--st-lc-tx); }
     .chip--st.nt{ background:var(--st-nt-bg); border-color:var(--st-nt-bd); color:var(--st-nt-tx); }
     .chip--st.vu{ background:var(--st-vu-bg); border-color:var(--st-vu-bd); color:var(--st-vu-tx); }
-    .chip--st.en{ background:var(--st-en-bg); border-color:var(--st-en-bд); color:var(--st-en-тx); }
-    .chip--st.cr{ background:var(--st-cr-bg); border-color:var(--st-cr-bд); color:var(--st-cr-тx); }
-    .chip--st.dd{ background:var(--st-dd-bg); border-color:var(--st-dd-bд); color:var(--st-dd-тx); }
-    .chip--st.ex{ background:var(--st-ex-bg); border-color:var(--st-ex-bд); color:var(--st-ex-тx); }
+    .chip--st.en{ background:var(--st-en-bg); border-color:var(--st-en-bd); color:var(--st-en-tx); }
+    .chip--st.cr{ background:var(--st-cr-bg); border-color:var(--st-cr-bd); color:var(--st-cr-tx); }
+    .chip--st.dd{ background:var(--st-dd-bg); border-color:var(--st-dd-bd); color:var(--st-dd-tx); }
+    .chip--st.ex{ background:var(--st-ex-bg); border-color:var(--st-ex-bd); color:var(--st-ex-tx); }
     .chip--count{ background:#EEF1FF; border-color:#D7DBFF; color:#4b4f7a; font-weight:600; padding:2px 6px; }
 
     .link-btn{ width:120px; text-align:center; padding:6px 8px; font-size:12px; border-radius:6px; border:1px solid #ccc; background:#f4f6ff; cursor:pointer; white-space:nowrap; }
@@ -139,8 +139,8 @@
     <div class="controls" role="group" aria-label="Controls">
       <section>
         <strong>Основа</strong>
-        <label><input type="radio" name="polyMain" value="morph" checked> Геоморфоложки структури</label>
-        <label><input type="radio" name="polyMain" value="land"> Ландшафтно райониране</label>
+        <label><input type="radio" name="polyMain" value="morph"> Геоморфоложки структури</label>
+        <label><input type="radio" name="polyMain" value="land" checked> Ландшафтно райониране</label>
 
         <label class="checkline" style="margin-top:6px;">
           <input type="radio" name="polyMain" value="zones"> Защитени територии
@@ -247,16 +247,22 @@
 
     const mapReady = (async () => {
       await waitForLeaflet();
-      map = L.map('map', { zoomControl: true }).setView([42.75, 25.3], 7);
-      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 20, attribution: '&copy; OpenStreetMap' }).addTo(map);
+      map = L.map('map', {
+        zoomControl: true,
+        zoomSnap: 0.25   // фино зумиране на 1/4 ниво
+      }).setView([42.75, 25.3], 7);
+      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        maxZoom: 20,
+        attribution: '&copy; OpenStreetMap'
+      }).addTo(map);
       state.pointMarkerLayer = L.layerGroup().addTo(map);
       return true;
     })();
 
     /* ---------- STATE ---------- */
     const state = {
-      activePolyMain: 'morph',       // по скрийншота – morph е активен, смени ако искаш
-      activePoly:     'morph',
+      activePolyMain: 'land',        // 'morph' | 'land' | 'zones'
+      activePoly:     'land',
       activePts:      'animals',
       selectedPolygonFeature: null,
       selectedPolygonLayer: null,
@@ -312,12 +318,13 @@
       return def.layer;
     }
 
-    /* ---------- VIEW CONFIG: fit + прецизно центриране в свободната зона ---------- */
+    /* ---------- VIEW CONFIG: fit + прецизно центриране и леко отближаване ---------- */
     const VIEWCFG = {
-      padFactor: 0.015,   // малък буфер да не се „реже“
-      padTL: [20, 20],    // базови падинги
-      rightGutter: 10,    // реалното дясно отстояние на панела от прозореца
-      zoomBump: 0.5         // еднократно доприближаване след fit (0 = изключи)
+      padFactor: 0.02,   // малък буфер да не се „реже“ (0.018–0.022 е деликатно)
+      padTL: [20, 20],
+      rightGutter: 10,   // реалното дясно отстояние на панела от прозореца
+      zoomBump: 0,       // без допълнително приближаване
+      fineZoomDelta: -0.25 // леко ОТБЛИЖАВАНЕ (четвърт ниво) след fit
     };
 
     function getSidebarMetrics() {
@@ -328,13 +335,11 @@
       if (sidebar) {
         const r = sidebar.getBoundingClientRect();
         w = Math.round(r.width);
-        // ако не е точно 10px, вземи реалното
         rightOffset = Math.max(0, Math.round(window.innerWidth - r.right));
       }
       return { mapW, sidebarW: w, rightOffset };
     }
 
-    // Центриране: връхната точка на свободното поле (средата между левия ръб и левия ръб на панела)
     function panCenterToFreeViewport() {
       const { mapW, sidebarW, rightOffset } = getSidebarMetrics();
       const freeWidth = Math.max(0, mapW - (sidebarW + rightOffset));
@@ -344,7 +349,6 @@
       map.panTo(centerLL, { animate: false });
     }
 
-    // Еднократен начален fit (при старт/смяна на полигонов слой), после прецизно центриране
     function initialFitForActivePoly({ withBump = true } = {}) {
       const def = POLY_DEFS[state.activePoly];
       if (!def?.layer) return;
@@ -354,25 +358,20 @@
       try { bounds = bounds.pad(VIEWCFG.padFactor); } catch(_) {}
 
       const { sidebarW, rightOffset } = getSidebarMetrics();
-
       const padTL = VIEWCFG.padTL;
-      // за да изместим фокуса към свободната зона, правим десния падинг = ширина на панела + реалното му дясно отстояние + лек буфер
       const padBR = [VIEWCFG.padTL[0] + sidebarW + rightOffset, VIEWCFG.padTL[1]];
 
-      // не заключваме нищо; гарантираме стабилен fit → после ръчно центрираме
-      map.setMinZoom(0);
+      map.setMinZoom(0); // освободи евентуални предишни ограничения
       map.invalidateSize();
       map.fitBounds(bounds, { paddingTopLeft: padTL, paddingBottomRight: padBR });
 
-      // когато fit приключи → optional bump и финално центриране в свободното поле
       map.once('moveend', () => {
-        if (withBump && VIEWCFG.zoomBump) {
-          const target = Math.min(map.getMaxZoom(), map.getZoom() + VIEWCFG.zoomBump);
-          map.once('moveend', () => { panCenterToFreeViewport(); });
-          map.setZoom(target, { animate: false });
-        } else {
-          panCenterToFreeViewport();
+        // фино отближаване (четвърт ниво), ако е зададено
+        if (VIEWCFG.fineZoomDelta) {
+          map.setZoom(map.getZoom() + VIEWCFG.fineZoomDelta, { animate: false });
         }
+        // прецизно центриране в свободната зона
+        panCenterToFreeViewport();
       });
     }
 
@@ -586,7 +585,7 @@
 
         const marker = L.marker([lat, lng], {
           icon: L.divIcon({ className: 'pt-marker', iconSize: [10,10] }),
-          title: (p.BG_NAME || п.LATIN_NAME || 'Point')
+          title: (p.BG_NAME || p.LATIN_NAME || 'Point')
         }).addTo(state.pointMarkerLayer);
 
         marker.on('click', () => openPopupAt([lat, lng], p));
@@ -730,7 +729,6 @@
           el.list.innerHTML = '';
           el.count.textContent = 'Въведете търсене или изберете филтър.';
 
-          // еднократен fit + центриране в свободната зона
           initialFitForActivePoly({ withBump: true });
         });
       });
@@ -840,14 +838,14 @@
       layers.data.animals = animals;
       layers.data.plants  = plants;
 
-      // стартов полигонов слой (по текущия избор)
+      // стартов полигонов слой (land)
       const layer = await ensurePolyLayer(state.activePoly);
       layer.addTo(map);
 
       setGlobalExplodedFromActive();
       populateFilterDropdowns(state.explodedPoints);
 
-      // ЕДНОКРАТЕН начален fit + прецизно центриране към свободното поле
+      // ЕДНОКРАТЕН начален fit + леко отближаване и прецизно центриране
       initialFitForActivePoly({ withBump: true });
 
       wireControls();
@@ -856,5 +854,3 @@
   </script>
 </body>
 </html>
-
-
