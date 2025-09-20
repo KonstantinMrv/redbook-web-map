@@ -117,10 +117,10 @@
     .chip--st.lc{ background:var(--st-lc-bg); border-color:var(--st-lc-bd); color:var(--st-lc-tx); }
     .chip--st.nt{ background:var(--st-nt-bg); border-color:var(--st-nt-bd); color:var(--st-nt-tx); }
     .chip--st.vu{ background:var(--st-vu-bg); border-color:var(--st-vu-bd); color:var(--st-vu-tx); }
-    .chip--st.en{ background:var(--st-en-bg); border-color:var(--st-en-bd); color:var(--st-en-tx); }
-    .chip--st.cr{ background:var(--st-cr-bg); border-color:var(--st-cr-bd); color:var(--st-cr-tx); }
-    .chip--st.dd{ background:var(--st-dd-bg); border-color:var(--st-dd-bd); color:var(--st-dd-tx); }
-    .chip--st.ex{ background:var(--st-ex-bg); border-color:var(--st-ex-bd); color:var(--st-ex-tx); }
+    .chip--st.en{ background:var(--st-en-bg); border-color:var(--st-en-bд); color:var(--st-en-тx); }
+    .chip--st.cr{ background:var(--st-cr-bg); border-color:var(--st-cr-bд); color:var(--st-cr-тx); }
+    .chip--st.dd{ background:var(--st-dd-bg); border-color:var(--st-dd-bд); color:var(--st-dd-тx); }
+    .chip--st.ex{ background:var(--st-ex-bg); border-color:var(--st-ex-bд); color:var(--st-ex-тx); }
     .chip--count{ background:#EEF1FF; border-color:#D7DBFF; color:#4b4f7a; font-weight:600; padding:2px 6px; }
 
     .link-btn{ width:120px; text-align:center; padding:6px 8px; font-size:12px; border-radius:6px; border:1px solid #ccc; background:#f4f6ff; cursor:pointer; white-space:nowrap; }
@@ -139,8 +139,8 @@
     <div class="controls" role="group" aria-label="Controls">
       <section>
         <strong>Основа</strong>
-        <label><input type="radio" name="polyMain" value="morph"> Геоморфоложки структури</label>
-        <label><input type="radio" name="polyMain" value="land" checked> Ландшафтно райониране</label>
+        <label><input type="radio" name="polyMain" value="morph" checked> Геоморфоложки структури</label>
+        <label><input type="radio" name="polyMain" value="land"> Ландшафтно райониране</label>
 
         <label class="checkline" style="margin-top:6px;">
           <input type="radio" name="polyMain" value="zones"> Защитени територии
@@ -255,9 +255,9 @@
 
     /* ---------- STATE ---------- */
     const state = {
-      activePolyMain: 'land',        // 'morph' | 'land' | 'zones'
-      activePoly:     'land',        // реалният ключ в POLY_DEFS
-      activePts:      'animals',     // 'animals' | 'plants'
+      activePolyMain: 'morph',       // по скрийншота – morph е активен, смени ако искаш
+      activePoly:     'morph',
+      activePts:      'animals',
       selectedPolygonFeature: null,
       selectedPolygonLayer: null,
       explodedPoints: [],
@@ -312,50 +312,68 @@
       return def.layer;
     }
 
-    /* ---------- VIEW CONFIG & устойчив еднократен fit ---------- */
+    /* ---------- VIEW CONFIG: fit + прецизно центриране в свободната зона ---------- */
     const VIEWCFG = {
-      padFactor: 0.02,     // рамка около BG bounds (0.01–0.05)
-      padTL: [24, 24],     // падинг горе-ляво
-      rightExtraPx: 24,    // буфер за десния падинг
-      rightMaxFrac: 0.60,  // макс 60% от ширината на картата
-      zoomBump: 1          // колко нива да доприближим (0 = без bump)
+      padFactor: 0.015,   // малък буфер да не се „реже“
+      padTL: [20, 20],    // базови падинги
+      rightGutter: 10,    // реалното дясно отстояние на панела от прозореца
+      zoomBump: 1         // еднократно доприближаване след fit (0 = изключи)
     };
 
-    function computeSidebarRightPad() {
+    function getSidebarMetrics() {
       const sidebar = document.getElementById('sidebar');
       const mapEl = document.getElementById('map');
-      const sidebarW = sidebar ? Math.round(sidebar.getBoundingClientRect().width) : 0;
       const mapW = mapEl ? mapEl.clientWidth : window.innerWidth;
-      return Math.min(sidebarW + VIEWCFG.rightExtraPx, Math.round(mapW * VIEWCFG.rightMaxFrac));
+      let w = 0, rightOffset = VIEWCFG.rightGutter;
+      if (sidebar) {
+        const r = sidebar.getBoundingClientRect();
+        w = Math.round(r.width);
+        // ако не е точно 10px, вземи реалното
+        rightOffset = Math.max(0, Math.round(window.innerWidth - r.right));
+      }
+      return { mapW, sidebarW: w, rightOffset };
     }
 
-    /**
-     * ЕДНОКРАТЕН начален fit към активния полигонов слой.
-     * НИКАКВИ заключвания. По желание – еднократно доприближаване (zoomBump).
-     */
+    // Центриране: връхната точка на свободното поле (средата между левия ръб и левия ръб на панела)
+    function panCenterToFreeViewport() {
+      const { mapW, sidebarW, rightOffset } = getSidebarMetrics();
+      const freeWidth = Math.max(0, mapW - (sidebarW + rightOffset));
+      const mapSize = map.getSize();
+      const centerPx = L.point(Math.round(freeWidth / 2), Math.round(mapSize.y / 2));
+      const centerLL = map.containerPointToLatLng(centerPx);
+      map.panTo(centerLL, { animate: false });
+    }
+
+    // Еднократен начален fit (при старт/смяна на полигонов слой), после прецизно центриране
     function initialFitForActivePoly({ withBump = true } = {}) {
       const def = POLY_DEFS[state.activePoly];
       if (!def?.layer) return;
 
       let bounds = def.layer.getBounds();
       if (!bounds || !bounds.isValid()) return;
-      try { bounds = bounds.pad(VIEWCFG.padFactor); } catch (_) {}
+      try { bounds = bounds.pad(VIEWCFG.padFactor); } catch(_) {}
+
+      const { sidebarW, rightOffset } = getSidebarMetrics();
 
       const padTL = VIEWCFG.padTL;
-      const padBR = [VIEWCFG.padTL[0] + computeSidebarRightPad(), VIEWCFG.padTL[1]];
+      // за да изместим фокуса към свободната зона, правим десния падинг = ширина на панела + реалното му дясно отстояние + лек буфер
+      const padBR = [VIEWCFG.padTL[0] + sidebarW + rightOffset, VIEWCFG.padTL[1]];
 
-      // ако някога е задаван minZoom, отпусни го (за да няма натрупване)
+      // не заключваме нищо; гарантираме стабилен fit → после ръчно центрираме
       map.setMinZoom(0);
-
       map.invalidateSize();
       map.fitBounds(bounds, { paddingTopLeft: padTL, paddingBottomRight: padBR });
 
-      if (withBump && VIEWCFG.zoomBump) {
-        map.once('moveend', () => {
+      // когато fit приключи → optional bump и финално центриране в свободното поле
+      map.once('moveend', () => {
+        if (withBump && VIEWCFG.zoomBump) {
           const target = Math.min(map.getMaxZoom(), map.getZoom() + VIEWCFG.zoomBump);
-          map.setZoom(target);
-        });
-      }
+          map.once('moveend', () => { panCenterToFreeViewport(); });
+          map.setZoom(target, { animate: false });
+        } else {
+          panCenterToFreeViewport();
+        }
+      });
     }
 
     /* ---------- Helpers ---------- */
@@ -568,7 +586,7 @@
 
         const marker = L.marker([lat, lng], {
           icon: L.divIcon({ className: 'pt-marker', iconSize: [10,10] }),
-          title: (p.BG_NAME || p.LATIN_NAME || 'Point')
+          title: (p.BG_NAME || п.LATIN_NAME || 'Point')
         }).addTo(state.pointMarkerLayer);
 
         marker.on('click', () => openPopupAt([lat, lng], p));
@@ -619,7 +637,7 @@
           const st = document.createElement('span');
           st.className = `chip chip--st ${code}`;
           st.title = STATUS_TITLES[code] || p.STATUS;
-          st.textContent = (code === 'cr') ? `⚠️ ${p.STATUS}` : п.STATUS;
+          st.textContent = (code === 'cr') ? `⚠️ ${p.STATUS}` : p.STATUS;
           meta.appendChild(st);
         }
 
@@ -712,7 +730,7 @@
           el.list.innerHTML = '';
           el.count.textContent = 'Въведете търсене или изберете филтър.';
 
-          // еднократен fit + (по избор) bump при смяна на полигонов слой
+          // еднократен fit + центриране в свободната зона
           initialFitForActivePoly({ withBump: true });
         });
       });
@@ -740,7 +758,6 @@
         el.list.innerHTML = '';
         el.count.textContent = 'Въведете търсене или изберете филтър.';
 
-        // еднократен fit + (по избор) bump при смяна в dropdown-а
         initialFitForActivePoly({ withBump: true });
       });
 
@@ -823,14 +840,14 @@
       layers.data.animals = animals;
       layers.data.plants  = plants;
 
-      // стартов полигонов слой (land)
+      // стартов полигонов слой (по текущия избор)
       const layer = await ensurePolyLayer(state.activePoly);
       layer.addTo(map);
 
       setGlobalExplodedFromActive();
       populateFilterDropdowns(state.explodedPoints);
 
-      // ЕДНОКРАТЕН начален fit (+ по избор bump). След това – свободно управление.
+      // ЕДНОКРАТЕН начален fit + прецизно центриране към свободното поле
       initialFitForActivePoly({ withBump: true });
 
       wireControls();
