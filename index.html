@@ -25,9 +25,9 @@
       --st-nt-bg:#FFF8E1; --st-nt-bd:#FFE39B; --st-nt-tx:#8C6D1F;
       --st-vu-bg:#FFF3CD; --st-vu-bd:#FFE08A; --st-vu-tx:#7A5E00;
       --st-en-bg:#FFE0B2; --st-en-bd:#FFCC80; --st-en-tx:#8B3E00;
-      --st-cr-bg:#FFCDD2; --st-cr-bд:#F5A3AB; --st-cr-тx:#B71C1C;
-      --st-dd-bg:#E3F2FD; --st-dd-bd:#BBDEFB; --st-dd-тx:#0D47A1;
-      --st-ex-bg:#111111; --st-ex-bd:#000000; --st-ex-тx:#FFFFFF;
+      --st-cr-bg:#FFCDD2; --st-cr-bd:#F5A3AB; --st-cr-tx:#B71C1C;
+      --st-dd-bg:#E3F2FD; --st-dd-bd:#BBDEFB; --st-dd-tx:#0D47A1;
+      --st-ex-bg:#111111; --st-ex-bd:#000000; --st-ex-tx:#FFFFFF;
     }
 
     *, *::before, *::after { box-sizing: border-box; }
@@ -116,11 +116,11 @@
     .chip--st{ font-weight:600; }
     .chip--st.lc{ background:var(--st-lc-bg); border-color:var(--st-lc-bd); color:var(--st-lc-tx); }
     .chip--st.nt{ background:var(--st-nt-bg); border-color:var(--st-nt-bd); color:var(--st-nt-tx); }
-    .chip--st.vu{ background:var(--st-vu-bg); border-color:var(--st-vu-bд); color:var(--st-vu-тx); }
-    .chip--st.en{ background:var(--st-en-bg); border-color:var(--st-en-bд); color:var(--st-en-тx); }
-    .chip--st.cr{ background:var(--st-cr-bg); border-color:var(--st-cr-bд); color:var(--st-cr-тx); }
-    .chip--st.dd{ background:var(--st-dd-bg); border-color:var(--st-dd-bд); color:var(--st-dd-тx); }
-    .chip--st.ex{ background:var(--st-ex-bg); border-color:var(--st-ex-bд); color:var(--st-ex-тx); }
+    .chip--st.vu{ background:var(--st-vu-bg); border-color:var(--st-vu-bd); color:var(--st-vu-tx); }
+    .chip--st.en{ background:var(--st-en-bg); border-color:var(--st-en-bd); color:var(--st-en-tx); }
+    .chip--st.cr{ background:var(--st-cr-bg); border-color:var(--st-cr-bd); color:var(--st-cr-tx); }
+    .chip--st.dd{ background:var(--st-dd-bg); border-color:var(--st-dd-bd); color:var(--st-dd-tx); }
+    .chip--st.ex{ background:var(--st-ex-bg); border-color:var(--st-ex-bd); color:var(--st-ex-tx); }
     .chip--count{ background:#EEF1FF; border-color:#D7DBFF; color:#4b4f7a; font-weight:600; padding:2px 6px; }
 
     .link-btn{ width:120px; text-align:center; padding:6px 8px; font-size:12px; border-radius:6px; border:1px solid #ccc; background:#f4f6ff; cursor:pointer; white-space:nowrap; }
@@ -141,7 +141,7 @@
         <strong>Основа</strong>
         <label><input type="radio" name="polyMain" value="morph"> Геоморфоложки структури</label>
 
-        <!-- DROPDOWN за морфологични нива -->
+        <!-- Dropdown за нива на морфология -->
         <div id="morphLine" class="zones-row hidden">
           <div class="zones-label">Изберете ниво</div>
           <select id="ddMorph">
@@ -208,39 +208,43 @@
 
     /* ---------- POLYGON LAYERS CONFIG ---------- */
     const POLY_DEFS = {
+      /* Забележка: оставяме стария ключ 'morph' за съвместимост, но dropdown-ът ползва morph_1/2/3 */
       morph: {
         url: 'data/morph_units.geojson',
         label: 'Геоморфоложки структури',
-        baseStyle: { color:'#B08D57', weight:1,   fillColor:'#F3E5AB', fillOpacity:.65 },
-        selStyle:  { color:'#B08D57', weight:4,   fillColor:'#FFF4C9', fillOpacity:.8 },
+        baseStyle: { color:'#9E6D2E', weight:1.2, fillColor:'#F3E5AB', fillOpacity:.35 },
+        selStyle:  { color:'#9E6D2E', weight:3,   fillColor:'#FFF4C9', fillOpacity:.55 },
         layer: null, loaded: false
       },
+
+      /* Нови нива със собствена симвология (ясно различими) */
       morph_1: {
         url: 'data/morph_units_1.geojson',
         label: 'Геоморфоложки структури — Ниво 1',
-        baseStyle: { color:'#B08D57', weight:1,   fillColor:'#F3E5AB', fillOpacity:.65 },
-        selStyle:  { color:'#B08D57', weight:4,   fillColor:'#FFF4C9', fillOpacity:.8 },
+        baseStyle: { color:'#B8860B', weight:1.3, fillColor:'#F5E6B3', fillOpacity:.40 },
+        selStyle:  { color:'#8B6508', weight:3,   fillColor:'#FFF1C9', fillOpacity:.60 },
         layer: null, loaded: false
       },
       morph_2: {
         url: 'data/morph_units_2.geojson',
         label: 'Геоморфоложки структури — Ниво 2',
-        baseStyle: { color:'#B08D57', weight:1,   fillColor:'#F3E5AB', fillOpacity:.65 },
-        selStyle:  { color:'#B08D57', weight:4,   fillColor:'#FFF4C9', fillOpacity:.8 },
+        baseStyle: { color:'#8C6BB1', weight:1.3, fillColor:'#E6DDF4', fillOpacity:.40 },
+        selStyle:  { color:'#6E4F8F', weight:3,   fillColor:'#F0E9FB', fillOpacity:.60 },
         layer: null, loaded: false
       },
       morph_3: {
         url: 'data/morph_units_3.geojson',
         label: 'Геоморфоложки структури — Ниво 3',
-        baseStyle: { color:'#B08D57', weight:1,   fillColor:'#F3E5AB', fillOpacity:.65 },
-        selStyle:  { color:'#B08D57', weight:4,   fillColor:'#FFF4C9', fillOpacity:.8 },
+        baseStyle: { color:'#2E8B57', weight:1.3, fillColor:'#CFEAD8', fillOpacity:.40 },
+        selStyle:  { color:'#206B43', weight:3,   fillColor:'#E5F5EC', fillOpacity:.60 },
         layer: null, loaded: false
       },
+
       land: {
         url: 'data/landscape_zoning.geojson',
         label: 'Ландшафтно райониране',
-        baseStyle: { color:'#5A8F68', weight:1,   fillColor:'#CDE8B8', fillOpacity:.65 },
-        selStyle:  { color:'#5A8F68', weight:4,   fillColor:'#E9F6D8', fillOpacity:.8 },
+        baseStyle: { color:'#5A8F68', weight:1.2, fillColor:'#CDE8B8', fillOpacity:.45 },
+        selStyle:  { color:'#2F6F49', weight:3,   fillColor:'#E9F6D8', fillOpacity:.60 },
         layer: null, loaded: false
       },
       n2k_birds: {
@@ -251,7 +255,7 @@
         layer: null, loaded: false
       },
       n2k_habitats: {
-        url: 'data/N2000_habitatss.geojson',
+        url: 'data/N2000_habitats.geojson', /* фиксиран път (без двойно 's') */
         label: 'Natura 2000 — Зони по местообитания',
         baseStyle: { color:'#43A047', weight:1.2, fillColor:'#C8E6C9', fillOpacity:.35 },
         selStyle:  { color:'#2E7D32', weight:3,   fillColor:'#E8F5E9', fillOpacity:.55 },
@@ -321,56 +325,74 @@
       ddZones: document.getElementById('ddZones'),
       morphLine: document.getElementById('morphLine'),
       ddMorph: document.getElementById('ddMorph'),
-      sidebar: document.getElementById('sidebar'),
-      mapEl: document.getElementById('map')
+      sidebar: document.getElementById('sidebar')
     };
 
     /* ---------- Данни за точки ---------- */
     const layers = { data: {} };
 
-    /* ---------- Lazy loader за полигонов слой ---------- */
+    /* ---------- Lazy loader за полигонов слой с надеждна симвология ---------- */
     async function ensurePolyLayer(key){
       const def = POLY_DEFS[key];
       if (!def) return null;
+
+      // ако вече е зареден – връщаме готовия слой
       if (def.loaded && def.layer) return def.layer;
 
-      const gj = await fetch(def.url).then(r=>r.json());
-      def.layer = L.geoJSON(gj, {
-        style: def.baseStyle,
-        onEachFeature: (f, l) => {
-          l.on({
-            mouseover: e => { if (e?.target?._path) e.target._path.classList.add('hovered'); },
-            mouseout:  e => { if (e?.target?._path) e.target._path.classList.remove('hovered'); },
-            click:     () => onPolygonClick(f, l)
-          });
-          const nm = (f.properties && (f.properties.NAME || f.properties.Name || f.properties.name)) || '';
-          if (nm) l.bindTooltip(nm, { permanent:true, direction:'center', className:'poly-label' });
-        }
-      });
-      def.loaded = true;
-      return def.layer;
+      try {
+        const gj = await fetch(def.url).then(r => {
+          if (!r.ok) throw new Error(`HTTP ${r.status} за ${def.url}`);
+          return r.json();
+        });
+
+        def.layer = L.geoJSON(gj, {
+          style: feature => (def.baseStyle || { color:'#444', weight:1, fillColor:'#ddd', fillOpacity:.35 }),
+          onEachFeature: (f, l) => {
+            // Tooltips – опитай няколко стандартни полета за име
+            const p = f.properties || {};
+            const nm = p.NAME || p.Name || p.name || p.TITLE || p.Title || p.title || p.LABEL || p.Label || p.label || '';
+            if (nm) l.bindTooltip(String(nm), { permanent:true, direction:'center', className:'poly-label' });
+
+            // Hover
+            l.on('mouseover', e => { if (e?.target?.setStyle) e.target.setStyle({ weight: (def.selStyle?.weight ?? 3) }); });
+            l.on('mouseout',  e => { if (e?.target?.setStyle) e.target.setStyle(def.baseStyle); });
+
+            // Click selection (както при другите)
+            l.on('click', () => onPolygonClick(f, l));
+          }
+        });
+
+        // Постави под маркерите
+        def.layer.on('add', () => { if (state.pointMarkerLayer) def.layer.bringToBack(); });
+        def.loaded = true;
+        return def.layer;
+
+      } catch (err) {
+        console.error('Грешка при зареждане на слой', key, err);
+        // аварийно празен слой, за да не чупи логиката
+        def.layer = L.geoJSON({ type:'FeatureCollection', features:[] });
+        def.loaded = true;
+        return def.layer;
+      }
     }
 
     /* ---------- ЕДНОКРАТЕН начален fit към България ---------- */
     function initialFitOnceToBulgaria() {
-      // ползва активния слой 'land' (зареден вече), взима неговите граници
       const def = POLY_DEFS['land'];
       if (!def?.layer) return;
 
       let bounds = def.layer.getBounds();
       if (!bounds || !bounds.isValid()) return;
 
-      // умерен пад за „въздух“
       try { bounds = bounds.pad(0.02); } catch(_) {}
 
-      // десен padding според текущата ширина на сайдпанела (само веднъж)
       const sidebarW = el.sidebar ? Math.round(el.sidebar.getBoundingClientRect().width) : 0;
       const padTL = [20, 20];
       const padBR = [20 + sidebarW + 10, 20];
 
       map.invalidateSize();
       map.fitBounds(bounds, { paddingTopLeft: padTL, paddingBottomRight: padBR });
-      // Няма заключвания, няма доп. zoom/pan. Това е всичко.
+      // Никакви заключвания/авто-зуум при смени на слоеве.
     }
 
     /* ---------- Helpers ---------- */
@@ -395,13 +417,17 @@
     }
 
     function onPolygonClick(feature, layer) {
+      // върни стил на предишния селектиран, ако има
       if (state.selectedPolygonLayer) {
         try { state.selectedPolygonLayer.setStyle(POLY_DEFS[state.activePoly].baseStyle); } catch(e){}
       }
       state.selectedPolygonLayer = layer;
       state.selectedPolygonFeature = feature;
-      layer.setStyle(POLY_DEFS[state.activePoly].selStyle);
 
+      // маркирай текущия
+      try { layer.setStyle(POLY_DEFS[state.activePoly].selStyle); } catch(e){}
+
+      // филтрирай точките вътре
       const exploded = explodeMultiPoints(layers.data[state.activePts]);
       const inside = [];
       for (const pt of exploded) if (turf.booleanPointInPolygon(pt, feature)) inside.push(pt);
@@ -699,7 +725,7 @@
 
     /* ---------- Controls / Events ---------- */
     function wireControls() {
-      // смяна на полигонов слой (група)
+      // смяна на полигонов слой (група) – БЕЗ промяна на изгледа
       document.querySelectorAll('input[name="polyMain"]').forEach(r => {
         r.addEventListener('change', async () => {
           const prevKey = state.activePoly;
@@ -713,7 +739,7 @@
 
           state.activePolyMain = r.value;
 
-          // показване/скриване на dropdown-ите (без никакъв refit)
+          // показване/скриване на dropdown-ите
           const useZones  = (state.activePolyMain === 'zones');
           const useMorphs = (state.activePolyMain === 'morph');
           el.zonesLine.classList.toggle('hidden', !useZones);
@@ -727,7 +753,7 @@
           const lay = await ensurePolyLayer(state.activePoly);
           lay.addTo(map);
 
-          // нулиране на селекции/филтри само в списъка/точките; НЕ пипаме изгледа
+          // нулиране на селекции/филтри само в точките/списъка
           state.selectedSpeciesKey = null;
           setGlobalExplodedFromActive();
           populateFilterDropdowns(state.explodedPoints);
@@ -876,16 +902,14 @@
       layers.data.animals = animals;
       layers.data.plants  = plants;
 
-      // стартов полигонов слой (land)
+      // Стартов полигонов слой (land) + добавяне в картата
       const layer = await ensurePolyLayer(state.activePoly);
       layer.addTo(map);
 
-      setGlobalExplodedFromActive();
-      populateFilterDropdowns(state.explodedPoints);
-
-      // ЕДНОКРАТЕН начален изглед към България (без бъдещи промени)
+      // Еднократен начален изглед към България (без бъдещи промени)
       initialFitOnceToBulgaria();
 
+      // Подготви UI и интеракции
       wireControls();
       refreshFilterVisibility();
     })();
