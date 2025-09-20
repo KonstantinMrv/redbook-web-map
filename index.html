@@ -26,8 +26,8 @@
       --st-vu-bg:#FFF3CD; --st-vu-bd:#FFE08A; --st-vu-tx:#7A5E00;
       --st-en-bg:#FFE0B2; --st-en-bd:#FFCC80; --st-en-tx:#8B3E00;
       --st-cr-bg:#FFCDD2; --st-cr-bd:#F5A3AB; --st-cr-tx:#B71C1C;
-      --st-dd-bg:#E3F2FD; --st-dd-bд:#BBDEFB; --st-dd-тx:#0D47A1;
-      --st-ex-bg:#111111; --st-ex-bд:#000000; --st-ex-тx:#FFFFFF;
+      --st-dd-bg:#E3F2FD; --st-dd-bd:#BBDEFB; --st-dd-tx:#0D47A1;
+      --st-ex-bg:#111111; --st-ex-bd:#000000; --st-ex-tx:#FFFFFF;
     }
 
     *, *::before, *::after { box-sizing: border-box; }
@@ -140,6 +140,17 @@
       <section>
         <strong>Основа</strong>
         <label><input type="radio" name="polyMain" value="morph"> Геоморфоложки структури</label>
+
+        <!-- DROPDOWN за морфологични нива -->
+        <div id="morphLine" class="zones-row hidden">
+          <div class="zones-label">Изберете ниво</div>
+          <select id="ddMorph">
+            <option value="morph_1">Ниво 1</option>
+            <option value="morph_2">Ниво 2</option>
+            <option value="morph_3">Ниво 3</option>
+          </select>
+        </div>
+
         <label><input type="radio" name="polyMain" value="land" checked> Ландшафтно райониране</label>
 
         <label class="checkline" style="margin-top:6px;">
@@ -197,18 +208,43 @@
 
     /* ---------- POLYGON LAYERS CONFIG ---------- */
     const POLY_DEFS = {
+      // Стар „morph“ (може и да се премахне, оставяме го за съвместимост)
       morph: {
         url: 'data/morph_units.geojson',
         label: 'Геоморфоложки структури',
-        baseStyle: { color:'#B08D57', weight:1,   fillColor:'#F3E5AB', fillOpacity:.65 },
-        selStyle:  { color:'#B08D57', weight:4,   fillColor:'#FFF4C9', fillOpacity:.8 },
+        baseStyle: { color:'#B08D57', weight:1, fillColor:'#F3E5AB', fillOpacity:.65 },
+        selStyle:  { color:'#B08D57', weight:4, fillColor:'#FFF4C9', fillOpacity:.8 },
         layer: null, loaded: false
       },
+
+      // Нови нива за морфология
+      morph_1: {
+        url: 'data/morph_units_1.geojson',
+        label: 'Геоморфоложки структури — Ниво 1',
+        baseStyle: { color:'#B08D57', weight:1, fillColor:'#F3E5AB', fillOpacity:.65 },
+        selStyle:  { color:'#B08D57', weight:4, fillColor:'#FFF4C9', fillOpacity:.8 },
+        layer: null, loaded: false
+      },
+      morph_2: {
+        url: 'data/morph_units_2.geojson',
+        label: 'Геоморфоложки структури — Ниво 2',
+        baseStyle: { color:'#B08D57', weight:1, fillColor:'#F3E5AB', fillOpacity:.65 },
+        selStyle:  { color:'#B08D57', weight:4, fillColor:'#FFF4C9', fillOpacity:.8 },
+        layer: null, loaded: false
+      },
+      morph_3: {
+        url: 'data/morph_units_3.geojson',
+        label: 'Геоморфоложки структури — Ниво 3',
+        baseStyle: { color:'#B08D57', weight:1, fillColor:'#F3E5AB', fillOpacity:.65 },
+        selStyle:  { color:'#B08D57', weight:4, fillColor:'#FFF4C9', fillOpacity:.8 },
+        layer: null, loaded: false
+      },
+
       land: {
         url: 'data/landscape_zoning.geojson',
         label: 'Ландшафтно райониране',
-        baseStyle: { color:'#5A8F68', weight:1,   fillColor:'#CDE8B8', fillOpacity:.65 },
-        selStyle:  { color:'#5A8F68', weight:4,   fillColor:'#E9F6D8', fillOpacity:.8 },
+        baseStyle: { color:'#5A8F68', weight:1, fillColor:'#CDE8B8', fillOpacity:.65 },
+        selStyle:  { color:'#5A8F68', weight:4, fillColor:'#E9F6D8', fillOpacity:.8 },
         layer: null, loaded: false
       },
       n2k_birds: {
@@ -262,7 +298,7 @@
     /* ---------- STATE ---------- */
     const state = {
       activePolyMain: 'land',        // 'morph' | 'land' | 'zones'
-      activePoly:     'land',
+      activePoly:     'land',        // реалният ключ в POLY_DEFS
       activePts:      'animals',
       selectedPolygonFeature: null,
       selectedPolygonLayer: null,
@@ -289,7 +325,11 @@
       list: document.getElementById('list'),
       count: document.getElementById('count'),
       zonesLine: document.getElementById('zonesLine'),
-      ddZones: document.getElementById('ddZones')
+      ddZones: document.getElementById('ddZones'),
+
+      // новите елементи
+      morphLine: document.getElementById('morphLine'),
+      ddMorph: document.getElementById('ddMorph')
     };
 
     /* ---------- Данни за точки ---------- */
@@ -366,11 +406,9 @@
       map.fitBounds(bounds, { paddingTopLeft: padTL, paddingBottomRight: padBR });
 
       map.once('moveend', () => {
-        // фино отближаване (четвърт ниво), ако е зададено
         if (VIEWCFG.fineZoomDelta) {
           map.setZoom(map.getZoom() + VIEWCFG.fineZoomDelta, { animate: false });
         }
-        // прецизно центриране в свободната зона
         panCenterToFreeViewport();
       });
     }
@@ -707,16 +745,24 @@
           const prevKey = state.activePoly;
           const prevDef = POLY_DEFS[prevKey];
           if (prevDef?.layer && map.hasLayer(prevDef.layer)) map.removeLayer(prevDef.layer);
-          if (state.selectedPolygonLayer) { try { state.selectedPolygonLayer.setStyle(POLY_DEFS[prevKey].baseStyle); } catch(e){} }
+          if (state.selectedPolygonLayer) {
+            try { state.selectedPolygonLayer.setStyle(POLY_DEFS[prevKey].baseStyle); } catch(e){}
+          }
           state.selectedPolygonLayer = null;
           state.selectedPolygonFeature = null;
 
           state.activePolyMain = r.value;
 
-          const useZones = (state.activePolyMain === 'zones');
+          // показване/скриване на dropdown-ите
+          const useZones  = (state.activePolyMain === 'zones');
+          const useMorphs = (state.activePolyMain === 'morph');
           el.zonesLine.classList.toggle('hidden', !useZones);
+          el.morphLine.classList.toggle('hidden', !useMorphs);
 
-          state.activePoly = useZones ? el.ddZones.value : state.activePolyMain;
+          // реалният ключ
+          state.activePoly = useZones  ? el.ddZones.value
+                           : useMorphs ? el.ddMorph.value
+                           : state.activePolyMain;
 
           const lay = await ensurePolyLayer(state.activePoly);
           lay.addTo(map);
@@ -729,22 +775,53 @@
           el.list.innerHTML = '';
           el.count.textContent = 'Въведете търсене или изберете филтър.';
 
+          // еднократен fit + центриране в свободната зона
           initialFitForActivePoly({ withBump: true });
         });
       });
 
-      // смяна вътре в dropdown-а (ако групата е активна)
+      // смяна вътре в dropdown-а (ако групата е активна) – Natura 2000
       el.ddZones.addEventListener('change', async () => {
         if (state.activePolyMain !== 'zones') return;
 
         const prevKey = state.activePoly;
         const prevDef = POLY_DEFS[prevKey];
         if (prevDef?.layer && map.hasLayer(prevDef.layer)) map.removeLayer(prevDef.layer);
-        if (state.selectedPolygonLayer) { try { state.selectedPolygonLayer.setStyle(POLY_DEFS[prevKey].baseStyle); } catch(e){} }
+        if (state.selectedPolygonLayer) {
+          try { state.selectedPolygonLayer.setStyle(POLY_DEFS[prevKey].baseStyle); } catch(e){}
+        }
         state.selectedPolygonLayer = null;
         state.selectedPolygonFeature = null;
 
         state.activePoly = el.ddZones.value;
+        const lay = await ensurePolyLayer(state.activePoly);
+        lay.addTo(map);
+
+        state.selectedSpeciesKey = null;
+        setGlobalExplodedFromActive();
+        populateFilterDropdowns(state.explodedPoints);
+        state.filteredPoints = [];
+        state.pointMarkerLayer.clearLayers();
+        el.list.innerHTML = '';
+        el.count.textContent = 'Въведете търсене или изберете филтър.';
+
+        initialFitForActivePoly({ withBump: true });
+      });
+
+      // смяна вътре в dropdown-а – Морфологични нива
+      el.ddMorph.addEventListener('change', async () => {
+        if (state.activePolyMain !== 'morph') return;
+
+        const prevKey = state.activePoly;
+        const prevDef = POLY_DEFS[prevKey];
+        if (prevDef?.layer && map.hasLayer(prevDef.layer)) map.removeLayer(prevDef.layer);
+        if (state.selectedPolygonLayer) {
+          try { state.selectedPolygonLayer.setStyle(POLY_DEFS[prevKey].baseStyle); } catch(e){}
+        }
+        state.selectedPolygonLayer = null;
+        state.selectedPolygonFeature = null;
+
+        state.activePoly = el.ddMorph.value;
         const lay = await ensurePolyLayer(state.activePoly);
         lay.addTo(map);
 
@@ -804,7 +881,9 @@
     }
 
     function clearSelection() {
-      if (state.selectedPolygonLayer) { try { state.selectedPolygonLayer.setStyle(POLY_DEFS[state.activePoly].baseStyle); } catch(e){} }
+      if (state.selectedPolygonLayer) {
+        try { state.selectedPolygonLayer.setStyle(POLY_DEFS[state.activePoly].baseStyle); } catch(e){}
+      }
       state.selectedPolygonLayer = null;
       state.selectedPolygonFeature = null;
       setGlobalExplodedFromActive();
@@ -823,7 +902,12 @@
 
     function escapeHTML(v) {
       if (v===null || v===undefined) return '';
-      return String(v).replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('>','&gt;').replaceAll('"','&quot;').replaceAll("'",'&#39;');
+      return String(v)
+        .replaceAll('&','&amp;')
+        .replaceAll('<','&lt;')
+        .replaceAll('>','&gt;')
+        .replaceAll('"','&quot;')
+        .replaceAll("'",'&#39;');
     }
 
     /* ---------- Bootstrap ---------- */
