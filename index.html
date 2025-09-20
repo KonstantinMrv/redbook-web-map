@@ -266,8 +266,8 @@
       currentMarkers: [],
       currentMarkersByKey: new Map(),
       selectedSpeciesKey: null,
-      lockBounds: null,              // заключени (паднати) граници за pan ограничение
-      minZoomLocked: null            // заключен начален (адаптивен) min zoom
+      lockBounds: null,              // съхранени граници за ре-fit
+      minZoomLocked: null            // заключен начален min zoom
     };
 
     /* ---------- UI elements ---------- */
@@ -314,15 +314,7 @@
       return def.layer;
     }
 
-    /* ---------- Зуум/обхват логика (адаптивно + заключване) ---------- */
-    function computeSidebarRightPad() {
-      const sidebar = document.getElementById('sidebar');
-      const mapEl = document.getElementById('map');
-      const sidebarW = sidebar ? Math.round(sidebar.getBoundingClientRect().width) : 0;
-      const mapW = mapEl ? mapEl.clientWidth : window.innerWidth;
-      // реална ширина + лек буфер, но не повече от 55% от ширината на картата
-      return Math.min(sidebarW + 24, Math.round(mapW * 0.55));
-    }
+    /* ---------- Зуум/обхват логика (фиксиран падинг, без maxBounds) ---------- */
 
     function fitToActivePolyWithSidebar() {
       const def = POLY_DEFS[state.activePoly];
@@ -334,24 +326,24 @@
       // лек пад за да не се „реже“
       try { bounds = bounds.pad(0.015); } catch(_) {}
 
-      // десен падинг според сайдпанела
-      const padTL = [16, 16];
-      const padBR = [16 + computeSidebarRightPad(), 16];
+      // фиксирани падинги (без динамични изчисления)
+      const pad = [20, 20];
 
       // за да няма подскачане
       map.invalidateSize();
 
       // fit до България според активния слой
-      map.fitBounds(bounds, { paddingTopLeft: padTL, paddingBottomRight: padBR });
-      return bounds; // върни използваните bounds (ще ги заключим при нужда)
+      map.fitBounds(bounds, { padding: pad });
+      return bounds; // върни използваните bounds (за refit при resize/смяна)
     }
 
-    // заключи минималния zoom и макс. граници (pan ограничения)
+    // заключи минималния zoom (само zoom-out), без pan ограничения
     function lockExtentFromBounds(bounds) {
       if (!bounds || !bounds.isValid()) return;
-      state.lockBounds = bounds; // запазваме оригиналните (паднати) граници за maxBounds
-      map.setMaxBounds(bounds);  // забранява плъзгане извън България
-      map.options.maxBoundsViscosity = 1.0;
+      state.lockBounds = bounds; // пазим за refit при resize
+
+      // няма setMaxBounds / няма лепкавост → свободно приплъзване
+      map.options.maxBoundsViscosity = 0;
 
       // заключи zoom-out: минималният zoom = текущият zoom след fit
       const z = map.getZoom();
@@ -359,21 +351,19 @@
       map.setMinZoom(z);
     }
 
-    // адаптивен refit при resize: пази заключването, но преизчислява minZoom спрямо новата геометрия на прозореца
+    // адаптивен refit при resize: пре-fit към запазените граници и обнови minZoom
     function refitAndRelock() {
       if (!state.lockBounds) return;
-      // временно отпусни minZoom, за да позволиш нов fit
-      map.setMinZoom(0);
-      // пре-fit към същите заключени граници, но с нови падинги
-      const padTL = [16, 16];
-      const padBR = [16 + computeSidebarRightPad(), 16];
+      map.setMinZoom(0); // временно отпускаме, за да позволим нов fit
+
+      const pad = [20, 20];
       map.invalidateSize();
-      map.fitBounds(state.lockBounds, { paddingTopLeft: padTL, paddingBottomRight: padBR });
+      map.fitBounds(state.lockBounds, { padding: pad });
+
       // заключи новия минимален zoom според текущия
       const z = map.getZoom();
       state.minZoomLocked = z;
       map.setMinZoom(z);
-      // пановете остават заключени към същите lockBounds
     }
 
     /* ---------- Helpers ---------- */
@@ -851,11 +841,11 @@
       setGlobalExplodedFromActive();
       populateFilterDropdowns(state.explodedPoints);
 
-      // начален fit към България + заключване (пан/зуум-аут)
+      // начален fit към България + заключване (само zoom-out)
       const usedBounds = fitToActivePolyWithSidebar();
       lockExtentFromBounds(usedBounds);
 
-      // адаптивен resize: ре-fit + re-lock на minZoom, пан-границите остават същите
+      // адаптивен resize: ре-fit + re-lock на minZoom
       (function () {
         let t;
         window.addEventListener('resize', () => {
