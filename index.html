@@ -5,11 +5,14 @@
   <title>Червената книга на България – ГИС платформа</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-  <!-- Leaflet CSS (преди нашия CSS, за да можем да го override-нем) -->
+  <!-- Leaflet CSS -->
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
 
-  <!-- Нашият CSS -->
-  <link rel="stylesheet" href="./app.css" />
+  <!-- Нашият CSS (root-relative път за Pages) -->
+  <link rel="stylesheet" href="/redbook-web-map/css/app.css" />
+
+  <!-- fallback, ако по някаква причина app.css не се зареди -->
+  <style>#map{min-height:60vh;display:block}</style>
 </head>
 <body>
   <noscript>Нужен е JavaScript, за да видите картата.</noscript>
@@ -85,11 +88,11 @@
     <div id="list" role="list" aria-label="Result list"></div>
   </div>
 
-  <!-- Външни библиотеки (зареждат се преди нашия app.js) -->
+  <!-- Библиотеки -->
   <script defer src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
   <script defer src="https://cdn.jsdelivr.net/npm/@turf/turf@6/turf.min.js"></script>
 
-  <!-- Нашият JS (defer гарантира, че DOM е парснат и горните библиотеки са налични) -->
-  <script defer src="./app.js"></script>
+  <!-- Нашият JS (root-relative път за Pages) -->
+  <script defer src="/redbook-web-map/js/app.js"></script>
 </body>
 </html>
