@@ -265,9 +265,7 @@
       pointMarkerLayer: null,
       currentMarkers: [],
       currentMarkersByKey: new Map(),
-      selectedSpeciesKey: null,
-      lockBounds: null,              // запазени граници за ре-fit
-      minZoomLocked: null            // заключен начален min zoom
+      selectedSpeciesKey: null
     };
 
     /* ---------- UI elements ---------- */
@@ -314,13 +312,13 @@
       return def.layer;
     }
 
-    /* ---------- VIEW CONFIG & логика за устойчив fit ---------- */
+    /* ---------- VIEW CONFIG & устойчив еднократен fit ---------- */
     const VIEWCFG = {
-      padFactor: 0.02,             // доп. рамка около границите
-      padTL: [24, 24],             // фиксиран падинг горе-ляво
-      rightExtraPx: 24,            // малък буфер към референтния десен падинг
-      rightMaxFrac: 0.60,          // не повече от 60% от ширината на картата
-      zoomBump: 1                  // колко нива да доприближим след fit
+      padFactor: 0.02,     // рамка около BG bounds (0.01–0.05)
+      padTL: [24, 24],     // падинг горе-ляво
+      rightExtraPx: 24,    // буфер за десния падинг
+      rightMaxFrac: 0.60,  // макс 60% от ширината на картата
+      zoomBump: 1          // колко нива да доприближим (0 = без bump)
     };
 
     function computeSidebarRightPad() {
@@ -332,82 +330,32 @@
     }
 
     /**
-     * Прави fit към активния полигонов слой, отчитайки сайдпанела.
-     * След първия moveend доприближава с VIEWCFG.zoomBump и заключва minZoom.
+     * ЕДНОКРАТЕН начален fit към активния полигонов слой.
+     * НИКАКВИ заключвания. По желание – еднократно доприближаване (zoomBump).
      */
-    function fitToActivePolyWithSidebar() {
+    function initialFitForActivePoly({ withBump = true } = {}) {
       const def = POLY_DEFS[state.activePoly];
       if (!def?.layer) return;
 
       let bounds = def.layer.getBounds();
       if (!bounds || !bounds.isValid()) return;
-
       try { bounds = bounds.pad(VIEWCFG.padFactor); } catch (_) {}
 
       const padTL = VIEWCFG.padTL;
       const padBR = [VIEWCFG.padTL[0] + computeSidebarRightPad(), VIEWCFG.padTL[1]];
 
-      map.invalidateSize();
-
-      // 1) fit така, че BG да е центрирана в свободната част (вляво от панела)
-      map.fitBounds(bounds, { paddingTopLeft: padTL, paddingBottomRight: padBR });
-
-      // 2) когато fit приключи → доп. приближаване + заключване на zoom-out
-      map.once('moveend', () => {
-        if (VIEWCFG.zoomBump) {
-          const target = Math.min(map.getMaxZoom(), map.getZoom() + VIEWCFG.zoomBump);
-          // втори moveend ще се вдигне след setZoom
-          map.once('moveend', () => {
-            const z = map.getZoom();
-            state.minZoomLocked = z;
-            map.setMinZoom(z);      // заключваме zoom-out
-          });
-          map.setZoom(target);
-        } else {
-          const z = map.getZoom();
-          state.minZoomLocked = z;
-          map.setMinZoom(z);
-        }
-      });
-
-      return bounds;
-    }
-
-    // Няма maxBounds → свободен pan, само minZoom заключваме.
-    function lockExtentFromBounds(bounds) {
-      state.lockBounds = bounds || null; // държим за ре-fit при resize/смяна
-      map.options.maxBoundsViscosity = 0;
-      // minZoom се задава в moveend в горната функция
-    }
-
-    function refitAndRelock() {
-      if (!state.lockBounds) return;
-
-      // временно отпускаме minZoom, за да позволим нов fit
+      // ако някога е задаван minZoom, отпусни го (за да няма натрупване)
       map.setMinZoom(0);
 
-      const padTL = VIEWCFG.padTL;
-      const padBR = [VIEWCFG.padTL[0] + computeSidebarRightPad(), VIEWCFG.padTL[1]];
-
       map.invalidateSize();
-      map.fitBounds(state.lockBounds, { paddingTopLeft: padTL, paddingBottomRight: padBR });
+      map.fitBounds(bounds, { paddingTopLeft: padTL, paddingBottomRight: padBR });
 
-      // отново bump + lock (същата логика като при старт)
-      map.once('moveend', () => {
-        if (VIEWCFG.zoomBump) {
+      if (withBump && VIEWCFG.zoomBump) {
+        map.once('moveend', () => {
           const target = Math.min(map.getMaxZoom(), map.getZoom() + VIEWCFG.zoomBump);
-          map.once('moveend', () => {
-            const z = map.getZoom();
-            state.minZoomLocked = z;
-            map.setMinZoom(z);
-          });
           map.setZoom(target);
-        } else {
-          const z = map.getZoom();
-          state.minZoomLocked = z;
-          map.setMinZoom(z);
-        }
-      });
+        });
+      }
     }
 
     /* ---------- Helpers ---------- */
@@ -671,7 +619,7 @@
           const st = document.createElement('span');
           st.className = `chip chip--st ${code}`;
           st.title = STATUS_TITLES[code] || p.STATUS;
-          st.textContent = (code === 'cr') ? `⚠️ ${p.STATUS}` : p.STATUS;
+          st.textContent = (code === 'cr') ? `⚠️ ${p.STATUS}` : п.STATUS;
           meta.appendChild(st);
         }
 
@@ -764,9 +712,8 @@
           el.list.innerHTML = '';
           el.count.textContent = 'Въведете търсене или изберете филтър.';
 
-          // нов fit + bump + lock за новите граници
-          const usedBounds = fitToActivePolyWithSidebar();
-          lockExtentFromBounds(usedBounds);
+          // еднократен fit + (по избор) bump при смяна на полигонов слой
+          initialFitForActivePoly({ withBump: true });
         });
       });
 
@@ -793,8 +740,8 @@
         el.list.innerHTML = '';
         el.count.textContent = 'Въведете търсене или изберете филтър.';
 
-        const usedBounds = fitToActivePolyWithSidebar();
-        lockExtentFromBounds(usedBounds);
+        // еднократен fit + (по избор) bump при смяна в dropdown-а
+        initialFitForActivePoly({ withBump: true });
       });
 
       // смяна на точков слой
@@ -883,18 +830,8 @@
       setGlobalExplodedFromActive();
       populateFilterDropdowns(state.explodedPoints);
 
-      // начален fit към България, доприближаване, заключване само на zoom-out
-      const usedBounds = fitToActivePolyWithSidebar();
-      lockExtentFromBounds(usedBounds);
-
-      // адаптивен resize: ре-fit + re-bump + re-lock
-      (function () {
-        let t;
-        window.addEventListener('resize', () => {
-          clearTimeout(t);
-          t = setTimeout(() => refitAndRelock(), 120);
-        });
-      })();
+      // ЕДНОКРАТЕН начален fit (+ по избор bump). След това – свободно управление.
+      initialFitForActivePoly({ withBump: true });
 
       wireControls();
       refreshFilterVisibility();
