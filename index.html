@@ -398,12 +398,12 @@
       let bounds = def.layer.getBounds();
       if (!bounds || !bounds.isValid()) return;
 
-      try { bounds = bounds.pad(0.02); } catch(_) {}
-
+      try { bounds = bounds.pad(0.01); } catch(_) {}  // по-малък падинг = по-близък zoom
+      
       const sidebarW = el.sidebar ? Math.round(el.sidebar.getBoundingClientRect().width) : 0;
-      const padTL = [20, 20];
-      const padBR = [20 + sidebarW + 10, 20];
-
+      const padTL = [10, 10];                          // по-малки отстояния
+      const padBR = [10 + sidebarW + 5, 10];           // по-малко въздух отдясно
+      
       map.invalidateSize();
       map.fitBounds(bounds, { paddingTopLeft: padTL, paddingBottomRight: padBR });
     }
@@ -926,3 +926,4 @@
   </script>
 </body>
 </html>
+
