@@ -48,31 +48,51 @@
       display:flex; flex-direction:column;
       overflow:hidden;
     }
-    #sidebar h3{ margin:0 0 var(--gap) 0; text-align:center; }
+
+    /* === Compact / collapsible sidebar === */
+    #sidebar { --pad:10px; }
+    #sidebar.compact .controls { display:none; }
+
+    #sidebar .topbar {
+      position:sticky; top:0; z-index:10;
+      background:#fff; padding:8px 6px 10px; margin:-6px -6px 6px;
+      border-bottom:1px solid #eee; display:flex; align-items:center; gap:8px;
+    }
+    .topbar h3{ font-size:18px; margin:0; flex:1; text-align:left; }
+    .topbar .toggle { border:1px solid #ddd; background:#f7f7f7; border-radius:8px; padding:6px 8px; cursor:pointer; }
+    .topbar .toggle:hover{ background:#eee; }
 
     .controls{ flex:0 0 auto; overflow:hidden; }
-    .controls section{ margin-bottom:10px; }
-    .controls label{ display:block; margin:4px 0; cursor:pointer; }
+    .controls section{ margin-bottom:8px; }
+    .controls label{ display:block; margin:4px 0; cursor:pointer; font-size:14px; }
 
-    .row{ display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1fr); gap:var(--gap); }
+    /* details summary (filters) */
+    .controls details { border:1px solid #eee; border-radius:8px; padding:6px; background:#fafafa; }
+    .controls details > summary { cursor:pointer; list-style:none; font-weight:600; }
+    .controls details > summary::-webkit-details-marker { display:none; }
+    .controls details[open] { background:#fefefe; }
+
+    /* Grids / inputs tighter */
+    .row{ display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1fr); gap:6px; }
     .row > *{ min-width:0; }
 
     input[type="text"], select{
       width:100%; max-width:100%; display:block;
-      padding:8px; border:1px solid #ccc; border-radius:6px; font-size:14px;
+      padding:6px 8px; border:1px solid #ccc; border-radius:6px; font-size:13px;
       min-width:0;
     }
     #sidebar select{ text-overflow:ellipsis; white-space:nowrap; overflow:hidden; }
+    .checkline{ display:flex; align-items:center; gap:6px; }
+    .zones-row { margin-top:4px; }
+    .zones-label { font-weight: 600; font-size: 13px; color:#333; margin-bottom:4px; }
 
-    label{ overflow-wrap:anywhere; word-break:break-word; }
-    .checkline{ display:flex; align-items:center; gap:8px; }
-
-    .btnbar{ display:flex; justify-content:space-evenly; align-items:center; gap:var(--gap); margin:6px 0 10px; }
-    .btnbar button{ padding:8px 10px; border-radius:8px; border:1px solid #ccc; background:#f6f6f6; cursor:pointer; min-width:150px; }
+    .btnbar{ display:flex; justify-content:space-evenly; align-items:center; gap:8px; margin:6px 0 8px; }
+    .btnbar button{ padding:6px 8px; border-radius:8px; border:1px solid #ccc; background:#f6f6f6; cursor:pointer; min-width:auto; font-size:12px; }
     .btnbar button:hover{ background:#eee; }
 
-    #count{ margin:6px 0; font-weight:600; flex:0 0 auto; }
+    #count{ margin:4px 0 6px; font-weight:600; font-size:13px; flex:0 0 auto; }
 
+    /* List area */
     #list{
       border-top:1px solid #ddd; margin-top:6px;
       flex:1 1 auto; min-height:0;
@@ -83,6 +103,7 @@
     .muted{ color:#666; }
     .hidden{ display:none !important; }
 
+    /* Markers */
     .pt-marker{
       background:#1f78b4; width:8px; height:8px; border-radius:50%; border:1px solid #fff;
       box-shadow:0 0 0 1px rgba(0,0,0,.15);
@@ -96,9 +117,10 @@
     }
     .leaflet-interactive.hovered{ stroke-width:3px !important; filter:brightness(1.2); }
 
+    /* Feature row – denser */
     .feature-item{
-      display:grid; grid-template-columns: 1fr 88px 120px; align-items:center;
-      gap:10px; min-height:64px; padding:10px 8px; border-bottom:1px solid #eee; cursor:pointer;
+      display:grid; grid-template-columns: 1fr 88px auto; align-items:center;
+      gap:8px; min-height:56px; padding:8px 6px; border-bottom:1px solid #eee; cursor:pointer;
     }
     .feature-item:hover{ background:#faf6e8; }
 
@@ -106,13 +128,14 @@
     .feature-badges .chip{ min-width:70px; justify-content:center; }
 
     .feature-names{ display:flex; flex-direction:column; gap:2px; min-width:0; }
-    .feature-names .name-bg{ font-weight:600; line-height:1.2; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-    .feature-names .name-la{ font-style:italic; font-size:0.875rem; color:#4b5563; opacity:.95; line-height:1.05; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-    .feature-meta{ margin-top:4px; font-size:12px; color:#666; display:flex; gap:6px; align-items:center; flex-wrap:wrap; }
+    .feature-names .name-bg{ font-weight:600; line-height:1.2; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-size:14px; }
+    .feature-names .name-la{ font-style:italic; font-size:12px; color:#4b5563; opacity:.9; line-height:1.05; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+    .feature-meta{ margin-top:2px; font-size:12px; color:#666; display:flex; gap:4px; align-items:center; flex-wrap:wrap; }
 
-    .chip{ display:inline-flex; align-items:center; gap:6px; padding:3px 8px; border-radius:999px; border:1px solid transparent; font-size:11px; line-height:1; white-space:nowrap; }
+    .chip{ display:inline-flex; align-items:center; gap:6px; padding:2px 6px; border-radius:999px; border:1px solid transparent; font-size:10.5px; line-height:1; white-space:nowrap; }
     .chip--endemic{ background:var(--gold-bg); border-color:var(--gold-bd); color:var(--gold-tx); }
     .chip--relict{  background:var(--purp-bg); border-color:var(--purp-bd); color:var(--purp-tx); }
+
     .chip--st{ font-weight:600; }
     .chip--st.lc{ background:var(--st-lc-bg); border-color:var(--st-lc-bd); color:var(--st-lc-tx); }
     .chip--st.nt{ background:var(--st-nt-bg); border-color:var(--st-nt-bd); color:var(--st-nt-tx); }
@@ -121,27 +144,27 @@
     .chip--st.cr{ background:var(--st-cr-bg); border-color:var(--st-cr-bd); color:var(--st-cr-tx); }
     .chip--st.dd{ background:var(--st-dd-bg); border-color:var(--st-dd-bd); color:var(--st-dd-tx); }
     .chip--st.ex{ background:var(--st-ex-bg); border-color:var(--st-ex-bd); color:var(--st-ex-tx); }
-    .chip--count{ background:#EEF1FF; border-color:#D7DBFF; color:#4b4f7a; font-weight:600; padding:2px 6px; }
 
-    .link-btn{ width:120px; text-align:center; padding:6px 8px; font-size:12px; border-radius:6px; border:1px solid #ccc; background:#f4f6ff; cursor:pointer; white-space:nowrap; }
+    .chip--count{ background:#EEF1FF; border-color:#D7DBFF; color:#4b4f7a; font-weight:600; padding:1px 6px; }
+
+    .link-btn{ width:auto; text-align:center; padding:6px 8px; font-size:12px; border-radius:6px; border:1px solid #ccc; background:#f4f6ff; cursor:pointer; white-space:nowrap; }
     .link-btn:hover{ background:#e9edff; }
     .link-btn:disabled{ opacity:.6; cursor:not-allowed; background:#f0f0f0; color:#888; }
-
-    .zones-row { margin-top:6px; }
-    .zones-label { font-weight: 600; font-size: 13px; color:#333; margin-bottom:4px; }
   </style>
 </head>
 <body>
   <div id="map"></div>
 
   <div id="sidebar" aria-label="Sidebar">
-    <h3>Червената книга на България – ГИС платформа</h3>
+    <div class="topbar">
+      <h3>Червената книга на България – ГИС платформа</h3>
+      <button id="btnToggleSidebar" class="toggle" title="Свий / разгъни контролите">–</button>
+    </div>
+
     <div class="controls" role="group" aria-label="Controls">
       <section>
         <strong>Основа</strong>
         <label><input type="radio" name="polyMain" value="morph"> Геоморфоложки структури</label>
-
-        <!-- Dropdown за нива на морфология -->
         <div id="morphLine" class="zones-row hidden">
           <div class="zones-label">Изберете ниво</div>
           <select id="ddMorph">
@@ -174,26 +197,30 @@
 
       <section>
         <input id="searchBox" type="text" placeholder="Търси по наименование" aria-label="Search">
-        <div class="row" style="margin-top:8px">
-          <select id="ddSTATUS"><option value="">Статус (всички)</option></select>
-          <select id="ddFAMILY"><option value="">Семейство (всички)</option></select>
-        </div>
-        <div class="row" id="rowTypeOrder" style="margin-top:8px">
-          <select id="ddTYPE"><option value="">Тип (всички)</option></select>
-          <select id="ddORDER"><option value="">Разред (всички)</option></select>
-        </div>
-        <div class="row" style="margin-top:8px">
-          <label class="checkline"><input type="checkbox" id="cbENDEMIC"> Ендемит</label>
-          <label class="checkline"><input type="checkbox" id="cbRELICT"> Реликт</label>
-        </div>
-        <div class="btnbar">
-          <button id="btnClearFilters" title="Изчисти всички филтри">Изчисти филтрите</button>
-          <button id="btnClearSel" title="Изчисти селекцията от картата">Изчисти селекцията</button>
-        </div>
+
+        <details id="advFilters">
+          <summary>Филтри</summary>
+          <div class="row" style="margin-top:6px">
+            <select id="ddSTATUS"><option value="">Статус (всички)</option></select>
+            <select id="ddFAMILY"><option value="">Семейство (всички)</option></select>
+          </div>
+          <div class="row" id="rowTypeOrder" style="margin-top:6px">
+            <select id="ddTYPE"><option value="">Тип (всички)</option></select>
+            <select id="ddORDER"><option value="">Разред (всички)</option></select>
+          </div>
+          <div class="row" style="margin-top:6px">
+            <label class="checkline"><input type="checkbox" id="cbENDEMIC"> Ендемит</label>
+            <label class="checkline"><input type="checkbox" id="cbRELICT"> Реликт</label>
+          </div>
+          <div class="btnbar" style="margin-top:8px">
+            <button id="btnClearFilters" title="Изчисти всички филтри">Изчисти филтрите</button>
+            <button id="btnClearSel" title="Изчисти селекцията от картата">Изчисти селекцията</button>
+          </div>
+        </details>
       </section>
     </div>
 
-    <div id="count" class="muted">Въведете търсене или изберете територия от картата.</div>
+    <div id="count" class="muted">Въведете търсене или изберете територия.</div>
     <div id="list" role="list" aria-label="Result list"></div>
   </div>
 
@@ -208,7 +235,6 @@
 
     /* ---------- POLYGON LAYERS CONFIG ---------- */
     const POLY_DEFS = {
-      /* Забележка: оставяме стария ключ 'morph' за съвместимост, но dropdown-ът ползва morph_1/2/3 */
       morph: {
         url: 'data/morph_units.geojson',
         label: 'Геоморфоложки структури',
@@ -216,8 +242,6 @@
         selStyle:  { color:'#9E6D2E', weight:3,   fillColor:'#FFF4C9', fillOpacity:.55 },
         layer: null, loaded: false
       },
-
-      /* Нови нива със собствена симвология (ясно различими) */
       morph_1: {
         url: 'data/morph_units_1.geojson',
         label: 'Геоморфоложки структури — Ниво 1',
@@ -239,7 +263,6 @@
         selStyle:  { color:'#206B43', weight:3,   fillColor:'#E5F5EC', fillOpacity:.60 },
         layer: null, loaded: false
       },
-
       land: {
         url: 'data/landscape_zoning.geojson',
         label: 'Ландшафтно райониране',
@@ -255,7 +278,7 @@
         layer: null, loaded: false
       },
       n2k_habitats: {
-        url: 'data/N2000_habitats.geojson', /* фиксиран път (без двойно 's') */
+        url: 'data/N2000_habitats.geojson',
         label: 'Natura 2000 — Зони по местообитания',
         baseStyle: { color:'#43A047', weight:1.2, fillColor:'#C8E6C9', fillOpacity:.35 },
         selStyle:  { color:'#2E7D32', weight:3,   fillColor:'#E8F5E9', fillOpacity:.55 },
@@ -294,9 +317,9 @@
 
     /* ---------- STATE ---------- */
     const state = {
-      activePolyMain: 'land',        // 'morph' | 'land' | 'zones'
-      activePoly:     'land',        // реалният ключ в POLY_DEFS
-      activePts:      'animals',     // 'animals' | 'plants'
+      activePolyMain: 'land',
+      activePoly:     'land',
+      activePts:      'animals',
       selectedPolygonFeature: null,
       selectedPolygonLayer: null,
       explodedPoints: [],
@@ -325,51 +348,42 @@
       ddZones: document.getElementById('ddZones'),
       morphLine: document.getElementById('morphLine'),
       ddMorph: document.getElementById('ddMorph'),
-      sidebar: document.getElementById('sidebar')
+      sidebar: document.getElementById('sidebar'),
+      btnToggleSidebar: document.getElementById('btnToggleSidebar')
     };
 
     /* ---------- Данни за точки ---------- */
     const layers = { data: {} };
 
-    /* ---------- Lazy loader за полигонов слой с надеждна симвология ---------- */
+    /* ---------- Lazy loader за полигонов слой ---------- */
     async function ensurePolyLayer(key){
       const def = POLY_DEFS[key];
       if (!def) return null;
-
-      // ако вече е зареден – връщаме готовия слой
       if (def.loaded && def.layer) return def.layer;
 
-      try {
+      try{
         const gj = await fetch(def.url).then(r => {
-          if (!r.ok) throw new Error(`HTTP ${r.status} за ${def.url}`);
+          if(!r.ok) throw new Error(`HTTP ${r.status} за ${def.url}`);
           return r.json();
         });
 
         def.layer = L.geoJSON(gj, {
           style: feature => (def.baseStyle || { color:'#444', weight:1, fillColor:'#ddd', fillOpacity:.35 }),
           onEachFeature: (f, l) => {
-            // Tooltips – опитай няколко стандартни полета за име
             const p = f.properties || {};
-            const nm = p.NAME || p.Name || p.name || p.TITLE || p.Title || p.title || p.LABEL || p.Label || p.label || '';
+            const nm = p.NAME || p.Name || p.name || p.TITLE || p.Label || p.label || '';
             if (nm) l.bindTooltip(String(nm), { permanent:true, direction:'center', className:'poly-label' });
 
-            // Hover
             l.on('mouseover', e => { if (e?.target?.setStyle) e.target.setStyle({ weight: (def.selStyle?.weight ?? 3) }); });
             l.on('mouseout',  e => { if (e?.target?.setStyle) e.target.setStyle(def.baseStyle); });
-
-            // Click selection (както при другите)
-            l.on('click', () => onPolygonClick(f, l));
+            l.on('click',     () => onPolygonClick(f, l));
           }
         });
-
-        // Постави под маркерите
         def.layer.on('add', () => { if (state.pointMarkerLayer) def.layer.bringToBack(); });
         def.loaded = true;
         return def.layer;
-
-      } catch (err) {
+      }catch(err){
         console.error('Грешка при зареждане на слой', key, err);
-        // аварийно празен слой, за да не чупи логиката
         def.layer = L.geoJSON({ type:'FeatureCollection', features:[] });
         def.loaded = true;
         return def.layer;
@@ -392,7 +406,6 @@
 
       map.invalidateSize();
       map.fitBounds(bounds, { paddingTopLeft: padTL, paddingBottomRight: padBR });
-      // Никакви заключвания/авто-зуум при смени на слоеве.
     }
 
     /* ---------- Helpers ---------- */
@@ -417,17 +430,13 @@
     }
 
     function onPolygonClick(feature, layer) {
-      // върни стил на предишния селектиран, ако има
       if (state.selectedPolygonLayer) {
         try { state.selectedPolygonLayer.setStyle(POLY_DEFS[state.activePoly].baseStyle); } catch(e){}
       }
       state.selectedPolygonLayer = layer;
       state.selectedPolygonFeature = feature;
-
-      // маркирай текущия
       try { layer.setStyle(POLY_DEFS[state.activePoly].selStyle); } catch(e){}
 
-      // филтрирай точките вътре
       const exploded = explodeMultiPoints(layers.data[state.activePts]);
       const inside = [];
       for (const pt of exploded) if (turf.booleanPointInPolygon(pt, feature)) inside.push(pt);
@@ -725,6 +734,11 @@
 
     /* ---------- Controls / Events ---------- */
     function wireControls() {
+      // свиване/разгъване на контролите (максимум място за списъка)
+      el.btnToggleSidebar.addEventListener('click', () => {
+        el.sidebar.classList.toggle('compact');
+      });
+
       // смяна на полигонов слой (група) – БЕЗ промяна на изгледа
       document.querySelectorAll('input[name="polyMain"]').forEach(r => {
         r.addEventListener('change', async () => {
@@ -739,13 +753,11 @@
 
           state.activePolyMain = r.value;
 
-          // показване/скриване на dropdown-ите
           const useZones  = (state.activePolyMain === 'zones');
           const useMorphs = (state.activePolyMain === 'morph');
           el.zonesLine.classList.toggle('hidden', !useZones);
           el.morphLine.classList.toggle('hidden', !useMorphs);
 
-          // реалният ключ
           state.activePoly = useZones  ? el.ddZones.value
                            : useMorphs ? el.ddMorph.value
                            : state.activePolyMain;
@@ -753,14 +765,13 @@
           const lay = await ensurePolyLayer(state.activePoly);
           lay.addTo(map);
 
-          // нулиране на селекции/филтри само в точките/списъка
           state.selectedSpeciesKey = null;
           setGlobalExplodedFromActive();
           populateFilterDropdowns(state.explodedPoints);
           state.filteredPoints = [];
           state.pointMarkerLayer.clearLayers();
           el.list.innerHTML = '';
-          el.count.textContent = 'Въведете търсене или изберете филтър.';
+          el.count.textContent = 'Въведете търсене или изберете територия.';
         });
       });
 
@@ -787,7 +798,7 @@
         state.filteredPoints = [];
         state.pointMarkerLayer.clearLayers();
         el.list.innerHTML = '';
-        el.count.textContent = 'Въведете търсене или изберете филтър.';
+        el.count.textContent = 'Въведете търсене или изберете територия.';
       });
 
       // смяна в Morph dropdown — НЕ променяме изгледа
@@ -813,7 +824,7 @@
         state.filteredPoints = [];
         state.pointMarkerLayer.clearLayers();
         el.list.innerHTML = '';
-        el.count.textContent = 'Въведете търсене или изберете филтър.';
+        el.count.textContent = 'Въведете търсене или изберете територия.';
       });
 
       // смяна на точков слой
@@ -872,7 +883,7 @@
       state.pointMarkerLayer.clearLayers();
       for (const m of state.currentMarkers) { m._icon?.classList.remove('highlight'); }
       el.list.innerHTML = '';
-      el.count.textContent = 'Въведете търсене или изберете филтър.';
+      el.count.textContent = 'Въведете търсене или изберете територия.';
     }
 
     function refreshFilterVisibility() {
@@ -902,14 +913,13 @@
       layers.data.animals = animals;
       layers.data.plants  = plants;
 
-      // Стартов полигонов слой (land) + добавяне в картата
+      // стартов полигонов слой (land)
       const layer = await ensurePolyLayer(state.activePoly);
       layer.addTo(map);
 
-      // Еднократен начален изглед към България (без бъдещи промени)
+      // ЕДНОКРАТЕН начален изглед към България
       initialFitOnceToBulgaria();
 
-      // Подготви UI и интеракции
       wireControls();
       refreshFilterVisibility();
     })();
